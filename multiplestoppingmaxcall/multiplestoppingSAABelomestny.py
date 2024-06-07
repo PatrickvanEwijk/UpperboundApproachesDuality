@@ -17,13 +17,12 @@ import gurobipy as gb
 time_training=[]
 time_testing=[]
 time_ub=[]
-def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, traj_est_ub=20000, K_low=200, K_up=200, K_noise=None, S_0=110, strike=100, seed=0, step_size=None, lambda_=1, p=100):
+def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, traj_est_ub=20000, K_low=200, K_up=200, K_noise=None, S_0=110, strike=100, seed=0, step_size=None, lambda_=1, p=100, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
     time_training=[]
     time_testing=[]
     time_ub=[]
     utils.set_seeds(seed)
-    steps= 9
-    T=3
+
     dt = T/steps
     traj=traj_est
     sigma = 0.2
@@ -34,7 +33,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+2000)
     model_nn_rng = np.random.default_rng(seed+4000)
-    sim_s = 3.5*dt
+    sim_s = .5*dt
     S_0_train=S_0 *np.exp( train_rng.normal(size=(traj, 1, d))*sigma*(sim_s)**.5 - .5*sigma**2*sim_s)
     discount_f= np.exp(-r*dt)
     dWS= train_rng.normal(size=(traj, steps, d)).astype(np.float32)*((dt)**0.5)
@@ -46,16 +45,14 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
 
     discount_f= np.exp(-r*dt)
 
-    payoff_maxcal=  lambda x: np.maximum(np.max(x, axis=-1) - strike,0)
-    payoff_basketcall = lambda x: np.maximum(np.mean(x, axis=-1) - strike,0)
-    payoff_option =payoff_maxcal
+    payoff_option = lambda x: payoff_(x, strike)
 
     K_lower= K_low
 
     input_size_lb= (1)*(d+1)
     input_size_ub=(1)*(d+1)
 
-    model_ = model_SAA(model_nn_rng, seed, input_size_lb, K_lower, steps, d, 0, input_size_ub, L=L, K_noise=K_noise, mode_kaggle=mode_kaggle)
+    model_ = model_SAA(model_nn_rng, seed, input_size_lb, K_lower, steps, d, K_up, input_size_ub, L=L, K_noise=K_noise, mode_kaggle=mode_kaggle)
     stop_val = payoff_option(S[:,-1,:])*discount_f**steps
     stop_val_testing = payoff_option(S2[:,-1,:])*discount_f**steps
     if mode_kaggle:
@@ -91,6 +88,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     t1_training=datetime.now()
     time_training.append(t1_training-t0_training)  
 
+    S = S_0*np.exp( np.cumsum(np.hstack((np.zeros((traj,1,d)), dWS*sigma)), axis=1) + np.repeat( (r - delta_dividend - sigma**2/2)*time_, d).reshape(steps+1,d)) # start from time-0 in optimisation problems rather than -1/2.
     #### TESTING - LB ####
     stop_val_testing=0
     prev_stop_time=-1    
@@ -146,39 +144,37 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
             M2_test_basisfunctions[:,time, :] = model_.random_basis_LS_upper(reg_m_t_p1) - exp_basis_func_tp1_inf_t
     
     payoff_process_manipulated = payoff_option(S3)*discount_f**np.arange(steps+1) # Desai et al. 2012
-    for ridge_ in [1/100, 1/1000]:
-        print(ridge_)
-        r_opt, theta_ub_nonsmoothened, fun_smoothened, solver_time= model_.LP_BELOM_BFGS_multiple(payoff_process_manipulated, M2_train_basisfunctions, print_progress=True, lambda_=lambda_, p=p, calc_nonsmoothenedTrainingUB=False, ridge_penalty=ridge_)
-        print(solver_time)
+    r_opt, theta_ub_nonsmoothened, fun_smoothened, solver_time= model_.LP_BELOM_BFGS_multiple(payoff_process_manipulated, M2_train_basisfunctions, print_progress=True, lambda_=lambda_, p=p, calc_nonsmoothenedTrainingUB=False, ridge_penalty=1/100)
+
     ##################################
 
-        #CONSTRUCT MARTINGALE
-        steps_fine=steps
-        M_incr=np.zeros((traj_test_ub, L, steps_fine))
-        for t_fine in range(steps_fine):
-            M2_test_bf_t = M2_test_basisfunctions[:,t_fine//1,:]
-            for ex_right in range(L):
-                M_incr[:,ex_right, t_fine]= M2_test_bf_t@ r_opt[:,ex_right, t_fine]
-        t1_ub = datetime.now()
-        time_ub.append(t1_ub-t0_ub)
-        # M_test = np.cumsum( np.dstack((np.zeros(M_incr.shape[:2]), M_incr)), axis=-1).reshape(M_incr.shape[0], M_incr.shape[-1]+1)
-        # ub_testdata= np.mean((payoff_process_-M_test).max(1))
-        # print('ub test', ub_testdata)
-        #### TESTING - UB ####
-        terminal_payoff=payoff_option(S4[:,-1,:])*np.exp(-r*T)
-        theta_upperbound= np.zeros((traj_test_ub, L, steps+1))
-        theta_upperbound[:,:,-1]=terminal_payoff[:,None]
+    #CONSTRUCT MARTINGALE
+    steps_fine=steps
+    M_incr=np.zeros((traj_test_ub, L, steps_fine))
+    for t_fine in range(steps_fine):
+        M2_test_bf_t = M2_test_basisfunctions[:,t_fine//1,:]
         for ex_right in range(L):
-            print('right=',ex_right)
-            theta_next_samelevel=terminal_payoff
-            for time in range(steps)[::-1]:
-                underlying_test = S4[:,time,:]
-                cur_payoff_testing = payoff_option(underlying_test)*discount_f**time
-                theta_next_prevlevel= theta_upperbound[:,ex_right-1, time+1] if ex_right>0 else 0
-                M_incr_prevlevel= M_incr[:,ex_right-1,time] if ex_right>0 else 0
-                M_incr_samelevel= M_incr[:,ex_right,time]
-                theta_next_samelevel= np.maximum(cur_payoff_testing - M_incr_prevlevel + theta_next_prevlevel, -M_incr_samelevel +theta_next_samelevel)  if steps-ex_right>time else cur_payoff_testing - M_incr_prevlevel + theta_next_prevlevel
-                theta_upperbound[:, ex_right, time] = np.copy(theta_next_samelevel)
+            M_incr[:,ex_right, t_fine]= M2_test_bf_t@ r_opt[:,ex_right, t_fine]
+    t1_ub = datetime.now()
+    time_ub.append(t1_ub-t0_ub)
+    # M_test = np.cumsum( np.dstack((np.zeros(M_incr.shape[:2]), M_incr)), axis=-1).reshape(M_incr.shape[0], M_incr.shape[-1]+1)
+    # ub_testdata= np.mean((payoff_process_-M_test).max(1))
+    # print('ub test', ub_testdata)
+    #### TESTING - UB ####
+    terminal_payoff=payoff_option(S4[:,-1,:])*np.exp(-r*T)
+    theta_upperbound= np.zeros((traj_test_ub, L, steps+1))
+    theta_upperbound[:,:,-1]=terminal_payoff[:,None]
+    for ex_right in range(L):
+        print('right=',ex_right)
+        theta_next_samelevel=terminal_payoff
+        for time in range(steps)[::-1]:
+            underlying_test = S4[:,time,:]
+            cur_payoff_testing = payoff_option(underlying_test)*discount_f**time
+            theta_next_prevlevel= theta_upperbound[:,ex_right-1, time+1] if ex_right>0 else 0
+            M_incr_prevlevel= M_incr[:,ex_right-1,time] if ex_right>0 else 0
+            M_incr_samelevel= M_incr[:,ex_right,time]
+            theta_next_samelevel= np.maximum(cur_payoff_testing - M_incr_prevlevel + theta_next_prevlevel, -M_incr_samelevel +theta_next_samelevel)  if steps-ex_right>time else cur_payoff_testing - M_incr_prevlevel + theta_next_prevlevel
+            theta_upperbound[:, ex_right, time] = np.copy(theta_next_samelevel)
 
         ## LOWERBOUND
         lowerbound= np.mean(stop_val_testing)
@@ -233,7 +229,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
             # print('time avg testing', np.mean(np.array(time_testing)))
             print('time avg training', np.mean(np.array(time_training)))
             print('time avg ub', np.mean(np.array(time_ub))) #  np.mean(np.array(time_training))
-    return lowerbound, lowerbound_std, upperbound, upperbound_std, solver_time, np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std
+    return lowerbound, lowerbound_std, upperbound, upperbound_std, np.mean(np.array(time_training)), np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std
 
 
 information=[]

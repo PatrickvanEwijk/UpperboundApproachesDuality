@@ -14,13 +14,12 @@ from tabulate import tabulate
 from datetime import datetime
 
 
-def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_noise=10, S_0=110, strike=100, seed=0):
+def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_noise=10, S_0=110, strike=100, seed=0, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
     time_training=[]
     time_testing=[]
     time_ub=[]
     utils.set_seeds(seed)
-    steps= 9
-    T=3
+
     dt = T/steps
     traj=traj_est
     sigma = 0.2
@@ -31,7 +30,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+2000)
     model_nn_rng = np.random.default_rng(seed+4000)
-    sim_s = 3.5*dt
+    sim_s = .5*dt
     S_0_train=S_0 *np.exp( train_rng.normal(size=(traj, 1, d))*sigma*(sim_s)**.5 - .5*sigma**2*sim_s)
     discount_f= np.exp(-r*dt)
     dWS= train_rng.normal(size=(traj, steps, d)).astype(np.float32)*((dt)**0.5)
@@ -42,9 +41,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
 
     discount_f= np.exp(-r*dt)
 
-    payoff_maxcal=  lambda x: np.maximum(np.max(x, axis=-1) - strike,0)
-    payoff_basketcall = lambda x: np.maximum(np.mean(x, axis=-1) - strike,0)
-    payoff_option =payoff_maxcal
+    payoff_option = lambda x: payoff_(x, strike)
 
     K_lower= K_low
     K_upper = K_noise
@@ -59,11 +56,11 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     
     M_incr=np.zeros((traj_test_ub, L, steps))
     if mode_kaggle:
-        step_size=inner
+        step_size=25000000
     else:
-        step_size = 2500*150 // traj_test_ub
-    inner_ = np.arange(0, inner+step_size, step_size, dtype=int)
-    inner_[inner_>=inner] = inner
+        step_size = 300000
+    inner_ = np.arange(0, inner*traj_test_ub+step_size, step_size, dtype=int)
+    inner_[inner_>=inner*traj_test_ub] = inner*traj_test_ub
     inner_=np.unique(inner_)
     inner_ = [inner_[i: i+2] for i in range(len(inner_)-1)]
     stop_val_archive= np.zeros((traj_est, steps+1,  2))
@@ -71,12 +68,14 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     t0_training=datetime.now()
     for ex_right in range(L):
         stop_val_archive=stop_val_archive[:,:,::-1] # Update stop_val_archive to set previous ex_right level to position stop_val_archive[:,:,0] and write new level at stop_val_archive[:,:,1]
-        print('right=',ex_right)
+        if print_progress:
+            print('right=',ex_right)
         # final_time_exercising= steps-ex_right
         stop_val = payoff_option(S[:,-1,:])*discount_f**steps
         stop_val_archive[:, -1, 1] = np.copy(stop_val)
         for time in range(steps)[::-1]:
-            print('t=',time)
+            if print_progress:
+                print('t=',time)
             underlying = S[:,time,:]
             payoff_underlying = payoff_option(underlying)*discount_f**time
             reg_m=np.hstack((underlying, payoff_underlying[:,None]))
@@ -89,11 +88,13 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     t1_training=datetime.now()
     time_training.append(t1_training-t0_training) 
 
+
     ## Training (Upperbound)
     #con_val_i_archive= np.zeros((traj_test_ub, inner, steps))
     t0_upperbound = datetime.now()
-    for time in range(steps)[::-1]:        
-        print('time=',time)
+    for time in range(steps)[::-1]:   
+        if print_progress:     
+            print('time=',time)
         underlying_upperbound = S3[:,time,:]   
         ## Inner trajectories
         traj_inner = np.exp( sigma*np.random.randn(traj_test_ub, d,inner)*(dt)**.5  + (r-delta_dividend-sigma**2/2)*dt)*underlying_upperbound[:,:,None]
@@ -101,29 +102,32 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
         actPayoff= payoff_option(S3[:,time+1,:])*discount_f**(time+1)
         reg_m_t2 =np.hstack((S3[:,time+1,:], actPayoff[:,None]))
         for ex_right in range(L):
-            if time==steps-1:
-                reg_m_inner=None
-                con_val_i=0
-                prev_right_c_t = 0
-            else:
-                reg_m_inner= [np.hstack((traj_inner[:,:,i], cur_payoff_inner[:,i][:,None])) for i in range(inner)]
-                reg_m_inner=np.vstack(reg_m_inner)
-                con_val_i = np.hstack([model_.prediction_conval_model2(reg_m_inner[i*traj_test_ub:j*traj_test_ub], time+1, traj_test_ub, ex_right).T for i,j in inner_])
-                #prev_right_c_t= np.hstack([model_.prediction_conval_model2(reg_m_inner[i*traj_test_ub:j*traj_test_ub], time+1, traj_test_ub, ex_right-1).T for i,j in inner_]) if ex_right>0 else 0 #
-                prev_right_c_t= con_val_i_archive_prev if ex_right>0 else 0
-                con_val_i_archive_prev = np.copy(con_val_i) # Update archive to set prev_right_c_t as con_val_i for next exercise right.
+            if time<=steps-1-ex_right: # Only times before or equal to N_T- \ell +1 are relevant, as N_T-\ell +1 is a terminal state. Two rights, 9 periods, must exercise at time 8 if still holds two rights (ex_right=1).
+                if time==steps-1:
+                    reg_m_inner=None
+                    con_val_i=0
+                    prev_right_c_t = 0
+                else:
+                    reg_m_testing=np.dstack((traj_inner.transpose(0,2,1), cur_payoff_inner[:,:,None])).reshape(-1, d+1)
+                    con_val_i=[]
+                    for slice_start, slice_end in inner_:
+                        slice_length = slice_end-slice_start
+                        con_val_i.append(model_.prediction_conval_model1(reg_m_testing[slice_start:slice_end], slice_length, time+1,  ex_right))
+                    con_val_i=np.hstack(con_val_i)
+                    prev_right_c_t= con_val_i_archive_prev if ex_right>0 else 0
+                    con_val_i_archive_prev = np.copy(con_val_i) # Update archive to set prev_right_c_t as con_val_i for next exercise right.
 
-            value_ex = cur_payoff_inner+prev_right_c_t
-            nE_rL = np.mean(np.maximum(value_ex,con_val_i), axis=1)
+                value_ex = cur_payoff_inner.flatten() +prev_right_c_t
+                nE_rL =np.mean(np.maximum(value_ex,con_val_i).reshape(traj_test_ub, inner), axis=1) #np.mean(np.maximum(value_ex,con_val_i), axis=1)
 
-            if time<steps-1:
-                prev_right_c_t = model_.prediction_conval_model1(reg_m_t2, traj_test_ub, time+1, ex_right-1) if ex_right>0 else 0         
-                actCValue= model_.prediction_conval_model1(reg_m_t2, traj_test_ub, time+1, ex_right)
-            else:
-                actCValue=0
-                prev_right_c_t= 0 # np.zeros((traj_test_ub,))
-            actValue = np.maximum(actCValue, actPayoff+prev_right_c_t)
-            M_incr[:, ex_right, time]= actValue-nE_rL
+                if time<steps-1:
+                    prev_right_c_tp1 = model_.prediction_conval_model1(reg_m_t2, traj_test_ub, time+1, ex_right-1) if ex_right>0 else 0         
+                    actCValue= model_.prediction_conval_model1(reg_m_t2, traj_test_ub, time+1, ex_right)
+                else:
+                    actCValue=0
+                    prev_right_c_tp1= 0 # np.zeros((traj_test_ub,))
+                actValue = np.maximum(actCValue, actPayoff+prev_right_c_tp1)
+                M_incr[:, ex_right, time]= actValue-nE_rL
     t1_upperbound = datetime.now()
     time_ub.append(t1_upperbound-t0_upperbound)
     
@@ -132,7 +136,8 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     stop_val_testing=0
     prev_stop_time=-1    
     for ex_right in range(L):
-        print('right=',ex_right)
+        if print_progress:
+            print('right=',ex_right)
         stop_time=steps+1-(L-ex_right)
         stop_val_testing_round=payoff_option(S2[:,stop_time,:])*discount_f**stop_time
         for time in range(steps)[-(L-ex_right)::-1]:
@@ -152,7 +157,8 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     theta_upperbound= np.zeros((traj_test_ub, L, steps+1))
     theta_upperbound[:,:,-1]=terminal_payoff[:,None]
     for ex_right in range(L):
-        print('right=',ex_right)
+        if print_progress:
+            print('right=',ex_right)
         theta_next_samelevel=terminal_payoff
         for time in range(steps)[::-1]:
             underlying_test = S3[:,time,:]
@@ -178,7 +184,8 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     stop_val_testingcv=0
     prev_stop_timeCV=np.repeat(-1, traj_test_ub)  
     for ex_right in range(L):
-        print('right=',ex_right)
+        if print_progress:
+            print('right=',ex_right)
         stop_timeCV= steps+1-(L-ex_right)
         stop_val_testingCV_round=payoff_option(S3[:,stop_timeCV,:])*discount_f**stop_timeCV 
         for time in range(steps)[-(L-ex_right)::-1]:
@@ -219,29 +226,135 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
 
 
 information=[]
-if __name__=='__main__':
-    for d,s0,n_stopping_rights in [ (2,90, 3), (2,90,2), (2, 90, 1)]:
-        for grid in [120]:
-            print(''.join(['*' for j in range(10)]), grid ,''.join(['*' for j in range(10)]))
-            for i in range(1):                
-                print(''.join(['-' for j in range(10)]), i , ''.join(['-' for j in range(10)]))
-                list_inf = main(d, n_stopping_rights, True, grid=grid, K_low=400,K_noise=50, traj_est=200000, traj_test_ub=10000, traj_test_lb=500000, S_0=s0, seed=i+8, mode_kaggle=False)
-                label_= 'HK'
-                inf_cols = [d, s0, n_stopping_rights, '', '', '', '']
-                inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
-                information.append(inf_list)
+# if __name__=='__main__':
+    # for d,s0,n_stopping_rights in [ (2,90, 3), (2,90,2), (2, 90, 1)]:
+    #     for grid in [120]:
+    #         print(''.join(['*' for j in range(10)]), grid ,''.join(['*' for j in range(10)]))
+    #         for i in range(1):                
+    #             print(''.join(['-' for j in range(10)]), i , ''.join(['-' for j in range(10)]))
+    #             list_inf = main(d, n_stopping_rights, True, grid=grid, K_low=400,K_noise=50, traj_est=200000, traj_test_ub=10000, traj_test_lb=500000, S_0=s0, seed=i+8, mode_kaggle=False)
+    #             label_= 'HK'
+    #             inf_cols = [d, s0, n_stopping_rights, '', '', '', '']
+    #             inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
+    #             information.append(inf_list)
 
-    # with open(f'run{datetime.now().strftime("%Y%m%d%H%m%S")}.pic', 'wb') as fh:
-    #     pic.dump(information, fh)
+    # # with open(f'run{datetime.now().strftime("%Y%m%d%H%m%S")}.pic', 'wb') as fh:
+    # #     pic.dump(information, fh)
    
+    # table_ = tabulate(utils.information_format(information), headers=utils.header_, tablefmt="latex_raw", floatfmt=".4f")
+
+
+    # print(table_)
+    # # folder_txt_log = '/content/drive/MyDrive/'#Tilburg/msc/Thesis/Log'
+    # # fh = open(f'logresults.txt', 'a')
+    # # fh.write(f'{datetime.now()}\n ')
+    # # fh.writelines(table_)
+    # # line="".join(np.repeat('*',75))
+    # # fh.write(f'\n {line} \n')
+    # # fh.close()
+
+
+traj_test_ub= 10000 
+traj_est_primal_dual = 100000
+traj_est_MM = 6000
+traj_est_MM_belomestny2013=15000
+K_lower=400
+traj_lb_testing = 200000
+information=[]
+steps=20
+
+
+
+basis_f_K_U_MM=150
+basis_f_K_U_MM_belomestny2013=250
+K_L_basic= 100
+K_U_belomestny2009=200
+K_U_SZH2013=150
+K_L_AndersenBroadie2004=300
+K_L_Glasserman2004=350
+basis_f_K_U_MM_BHS=int(basis_f_K_U_MM*1.5)
+grid_Glasserman2004=600
+inner_sim_SZH=300
+
+if __name__=='__main__':
+    for d,s0,n_stopping_rights in [(4,100, 3)]:#[(2,90,9), (2,90, 8), (2,90, 7), (2, 90, 6), (2, 90, 5), (2,90,4), (2,90,3), (2,90,2), (2, 90, 1)]:
+        for inner_sim in [500]:
+            print(''.join(np.repeat('*', 10)), inner_sim ,''.join(np.repeat('*', 10)))
+            for i in range(1):                
+                # calibrations_= [[keras.activations.softplus, 30, 'HeNormal', 1]]
+                # for activation_f, vs_factor, distribution_vs, w_c in calibrations_:
+                inf_cols= [d, s0, n_stopping_rights, '', '', '', '']
+
+                # label_ = f'Belom. et al. (2023)-{steps}'
+                # print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=SAA_LP(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_basic, K_up=basis_f_K_U_MM, traj_est=traj_est_primal_dual, traj_train_ub=traj_est_MM, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0, seed=i+8, mode_desai_BBS_BHS='bbs')
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)  
+            
+                # label_ = f'Belom. Hilb. Schoenmakers (2019)-{steps}'
+                # print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=SAA_LP(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_basic, K_up=basis_f_K_U_MM_BHS,  traj_est=traj_est_primal_dual, traj_train_ub=traj_est_MM, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0, seed=i+8,  mode_desai_BBS_BHS='bhs')
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)  
+
+                # label_ =f'Desai et al. (2012)-{steps}'
+                # print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))                             
+                # list_inf=SAA_LP(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_basic,K_up=basis_f_K_U_MM, traj_est=traj_est_primal_dual, traj_train_ub=traj_est_MM,traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0, seed=i+8, mode_desai_BBS_BHS='desai')
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)  
+
+                # for lambda_ in [1/20, 1/2, 1]:
+                #     label_ = f'Belom. Emp. Dual; lambda={lambda_}'
+                #     print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                #     list_inf=BelomestnySAA2013(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_basic, K_up=basis_f_K_U_MM_belomestny2013, traj_est=traj_est_primal_dual, traj_est_ub=traj_est_MM_belomestny2013, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8, lambda_=lambda_, p=100)
+                #     inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                #     information.append(inf_list) 
+                    
+
+                # label_=f'SZH (2013) KU100 -{steps}'
+                # print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=SZH2013(d, n_stopping_rights, True, grid=inner_sim_SZH, K_low=K_L_basic,K_up=K_U_SZH2013, traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8)
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)    
+
+                # label_=f'Belom. et al. (2009) KU100-{steps}'
+                # print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=mainBelomestnyetal2009(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_basic,K_up=K_U_belomestny2009, traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8) 
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)   
+
+
+                # label_ = f'AB (2004)-{steps}'
+                # print(''.join(np.repeat('-', 10)), label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=AndersonBroadie2004(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_AndersenBroadie2004, K_noise=None, traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub//4, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8) 
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)
+
+                # label_ = f'AB (2004)-{steps}'
+                # print(''.join(np.repeat('-', 10)), label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=AndersonBroadie2004(d, n_stopping_rights, True, grid=inner_sim*3//4, K_low=K_L_AndersenBroadie2004, K_noise=None, traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub//4, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8) 
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)
+
+                # label_ = f'GM (2004)-{steps}'
+                # print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=Glassermann(d, n_stopping_rights, True, grid=K_L_Glasserman2004, K_low=K_L_Glasserman2004, K_noise=None, traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8) 
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)    
+
+                label_ = f'GM (2004)-{steps}'
+                print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                list_inf=main(d, n_stopping_rights, True, steps=steps, grid=inner_sim, K_low=K_L_basic,K_noise=None,  traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8) 
+                inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                information.append(inf_list)   
+                
+
+                # with open(f'run{datetime.now().strftime("%Y%m%d%H%m%S")}.pic', 'wb') as fh:
+                #     pic.dump(information, fh)
+                # repo.create_file(f'resultfiles/run{datetime.now().strftime("%Y%m%d%H%m%S")}.txt', f'run{datetime.now().strftime("%Y%m%d%H%m%S")}.txt', str(information), branch='main')
+
     table_ = tabulate(utils.information_format(information), headers=utils.header_, tablefmt="latex_raw", floatfmt=".4f")
 
-
     print(table_)
-    # folder_txt_log = '/content/drive/MyDrive/'#Tilburg/msc/Thesis/Log'
-    # fh = open(f'logresults.txt', 'a')
-    # fh.write(f'{datetime.now()}\n ')
-    # fh.writelines(table_)
-    # line="".join(np.repeat('*',75))
-    # fh.write(f'\n {line} \n')
-    # fh.close()
+
+

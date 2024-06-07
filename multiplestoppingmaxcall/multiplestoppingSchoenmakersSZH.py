@@ -14,13 +14,12 @@ from tabulate import tabulate
 from datetime import datetime
 
 
-def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=10, K_noise=None,S_0=110, strike=100, seed=0, step_size=None):
+def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=10, K_noise=None,S_0=110, strike=100, seed=0, step_size=None, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
     time_training=[]
     time_testing=[]
     time_ub=[]
     utils.set_seeds(seed)
-    steps= 9
-    T=3
+
     dt = T/steps
     traj=traj_est
     sigma = 0.2
@@ -31,7 +30,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+2000)
     model_nn_rng = np.random.default_rng(seed+4000)
-    sim_s = 2*dt
+    sim_s = 3*dt
     S_0_train=S_0 *np.exp( train_rng.normal(size=(traj, 1, d))*sigma*(sim_s)**.5 - .5*sigma**2*sim_s)
     discount_f= np.exp(-r*dt)
     dWS= train_rng.normal(size=(traj, steps, d)).astype(np.float32)*((dt)**0.5)
@@ -40,9 +39,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
 
     discount_f= np.exp(-r*dt)
 
-    payoff_maxcal=  lambda x: np.maximum(np.max(x, axis=-1) - strike,0)
-    payoff_basketcall = lambda x: np.maximum(np.mean(x, axis=-1) - strike,0)
-    payoff_option =payoff_maxcal
+    payoff_option = lambda x: payoff_(x, strike)
 
 
     mode_= 0 # MODE=1: INCLUDE TERMS IN REGRESSION TO FIT NOISE
@@ -118,7 +115,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     ## Loop to construct martingale increments. Loop takes place over trajectories of UB if mode_kaggle=True
     if mode_kaggle:
         if step_size is None:
-            step_size= int(np.floor(250*200*100000/K_up/grid/traj_test_ub))
+            step_size= int(np.floor(250*300*100000*8/K_up/grid/traj_test_ub))
         steps_ub = np.arange(0,traj_test_ub+step_size, step_size)
         steps_ub[steps_ub>=traj_test_ub]=traj_test_ub
         steps_ub=list(np.unique(steps_ub))

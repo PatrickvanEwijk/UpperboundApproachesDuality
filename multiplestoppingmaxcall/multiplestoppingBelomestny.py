@@ -17,13 +17,12 @@ from datetime import datetime
 
 
 
-def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=100, K_noise=None, S_0=110, strike=100, seed=0, step_size=None):
+def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=100, K_noise=None, S_0=110, strike=100, seed=0, step_size=None, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
     time_training=[]
     time_testing=[]
     utils.set_seeds(seed)
     time_ub=[]
-    steps= 9
-    T=3
+   
     dt = T/steps
     traj=traj_est
     sigma = 0.2
@@ -36,7 +35,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     model_nn_rng = np.random.default_rng(seed+4000)
    
     
-    sim_s = 3.5*dt
+    sim_s = 3*dt
     S_0_train=S_0 *np.exp(train_rng.normal(loc=0.0, scale=1.0, size=(traj, 1, d))*sigma*(sim_s)**.5 - .5*sigma**2*sim_s)
     dWs= train_rng.normal(loc=0.0, scale=1.0, size=(traj, steps, d)).astype(np.float32)*((dt)**0.5)
     S = S_0_train*np.exp( np.cumsum(np.hstack((np.zeros((traj,1,d)), dWs*sigma)), axis=1) + np.repeat( (r - delta_dividend - sigma**2/2)*time_, d).reshape(steps+1,d))
@@ -45,9 +44,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     S3 = S_0_train*np.exp( np.cumsum(np.hstack((np.zeros((traj_est,1,d)),dW_ub*sigma)), axis=1) + np.repeat( (r- delta_dividend - sigma**2/2)*time_, d).reshape(steps+1,d))
 
     discount_f= np.exp(-r*dt)
-    payoff_maxcal=  lambda x: np.maximum(np.max(x, axis=-1) - strike,0)
-    payoff_basketcall = lambda x: np.maximum(np.mean(x, axis=-1) - strike,0)
-    payoff_option =payoff_maxcal
+    payoff_option = lambda x: payoff_(x, strike)
 
     K_lower= K_low
     K_upper = K_up
@@ -87,7 +84,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
             stop_val = np.where(ex_ind, payoff_underlying+prev_right_c, stop_val)#np.where(ex_ind, payoff_underlying, stop_val) 
             stop_val_archive[:,time, 1]=np.copy(stop_val)
             ### UB
-            underlying_upperbound = S[:,time,:]
+            underlying_upperbound = S3[:,time,:]
             cur_payoff_ub = payoff_option(underlying_upperbound)*discount_f**(time)
             reg_m_ub=np.hstack((underlying_upperbound, cur_payoff_ub[:,None]))
             prev_right_c_ub = stop_val_archive_ub[:, time+1, 0]
@@ -137,7 +134,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     ## Loop to construct martingale increments. Loop takes place over trajectories of UB if mode_kaggle=True
     if mode_kaggle:
         if step_size is None:
-            step_size= int(np.floor(550*200/K_up/grid))
+            step_size= int(np.floor(250*300*100000*8/K_up/grid/traj_test_ub))
         steps_ub = np.arange(0,traj_test_ub+step_size, step_size)
         steps_ub[steps_ub>=traj_test_ub]=traj_test_ub
         steps_ub=list(np.unique(steps_ub))
@@ -235,29 +232,130 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
         print('time avg ub', np.mean(np.array(time_ub)))
     return lowerbound, lowerbound_std, upperbound, upperbound_std, np.mean(np.array(time_training)), np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std
 
-information=[]
-if __name__=='__main__':
-    for d,s0,n_stopping_rights in [ (2,90, 2), (2, 90, 3)]:
-        for grid in [2000]:
-            print(''.join(['*' for j in range(10)]), grid ,''.join(['*' for j in range(10)]))
-            for i in range(1):                
-                print(''.join(['-' for j in range(10)]), i ,  ''.join(['-' for j in range(10)]))
-                list_inf=main(d, n_stopping_rights, True, grid=grid, K_low=100,K_up=300, K_noise=None, traj_est=200000, traj_test_ub=1000, traj_test_lb=50000, S_0=s0, seed=i+8)
-                label_='Belom. et al. LS'
-                inf_cols = [d, s0, n_stopping_rights, '', '', '', '']
-                inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
-                information.append(inf_list)
+# information=[]
+# if __name__=='__main__':
+#     for d,s0,n_stopping_rights in [ (2,90, 3), (2, 90, 2), (2,90,1)]:
+#         for grid in [100]:
+#             print(''.join(['*' for j in range(10)]), grid ,''.join(['*' for j in range(10)]))
+#             for i in range(1):                
+#                 print(''.join(['-' for j in range(10)]), i ,  ''.join(['-' for j in range(10)]))
+#                 list_inf=main(d, n_stopping_rights, True, grid=grid, K_low=100,K_up=120, K_noise=None, traj_est=500000, traj_test_ub=1000, traj_test_lb=50000, S_0=s0, seed=i+8)
+#                 label_='Belom. et al. LS'
+#                 inf_cols = [d, s0, n_stopping_rights, '', '', '', '']
+#                 inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
+#                 information.append(inf_list)
 
-    # with open(f'run{datetime.now().strftime("%Y%m%d%H%m%S")}.pic', 'wb') as fh:
-    #     pic.dump(information, fh)
+#     # with open(f'run{datetime.now().strftime("%Y%m%d%H%m%S")}.pic', 'wb') as fh:
+#     #     pic.dump(information, fh)
    
+#     table_ = tabulate(utils.information_format(information), headers=utils.header_, tablefmt="latex_raw", floatfmt=".4f")
+
+#     print(table_)
+#     # folder_txt_log = '/content/drive/MyDrive/'#Tilburg/msc/Thesis/Log'
+#     # fh = open(f'logresults.txt', 'a')
+#     # fh.write(f'{datetime.now()}\n ')
+#     # fh.writelines(table_)
+#     # line="".join(np.repeat('*',75))
+#     # fh.write(f'\n {line} \n')
+#     # fh.close()
+
+
+traj_test_ub= 10000 
+traj_est_primal_dual = 100000
+traj_est_MM = 6000
+traj_est_MM_belomestny2013=15000
+K_lower=400
+traj_lb_testing = 200000
+information=[]
+steps=9
+
+
+
+basis_f_K_U_MM=150
+basis_f_K_U_MM_belomestny2013=250
+K_L_basic= 200
+K_U_belomestny2009=300
+K_U_SZH2013=150
+K_L_AndersenBroadie2004=300
+K_L_Glasserman2004=350
+basis_f_K_U_MM_BHS=int(basis_f_K_U_MM*1.5)
+grid_Glasserman2004=600
+inner_sim_SZH=300
+
+if __name__=='__main__':
+    for d,s0,n_stopping_rights in [(4,100, 2)]:#[(2,90,9), (2,90, 8), (2,90, 7), (2, 90, 6), (2, 90, 5), (2,90,4), (2,90,3), (2,90,2), (2, 90, 1)]:
+        for inner_sim in [100]:
+            print(''.join(np.repeat('*', 10)), inner_sim ,''.join(np.repeat('*', 10)))
+            for i in range(1):                
+                # calibrations_= [[keras.activations.softplus, 30, 'HeNormal', 1]]
+                # for activation_f, vs_factor, distribution_vs, w_c in calibrations_:
+                inf_cols= [d, s0, n_stopping_rights, '', '', '', '']
+
+                # label_ = f'Belom. et al. (2023)-{steps}'
+                # print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=SAA_LP(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_basic, K_up=basis_f_K_U_MM, traj_est=traj_est_primal_dual, traj_train_ub=traj_est_MM, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0, seed=i+8, mode_desai_BBS_BHS='bbs')
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)  
+            
+                # label_ = f'Belom. Hilb. Schoenmakers (2019)-{steps}'
+                # print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=SAA_LP(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_basic, K_up=basis_f_K_U_MM_BHS,  traj_est=traj_est_primal_dual, traj_train_ub=traj_est_MM, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0, seed=i+8,  mode_desai_BBS_BHS='bhs')
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)  
+
+                # label_ =f'Desai et al. (2012)-{steps}'
+                # print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))                             
+                # list_inf=SAA_LP(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_basic,K_up=basis_f_K_U_MM, traj_est=traj_est_primal_dual, traj_train_ub=traj_est_MM,traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0, seed=i+8, mode_desai_BBS_BHS='desai')
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)  
+
+                # for lambda_ in [1/20, 1/2, 1]:
+                #     label_ = f'Belom. Emp. Dual; lambda={lambda_}'
+                #     print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                #     list_inf=BelomestnySAA2013(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_basic, K_up=basis_f_K_U_MM_belomestny2013, traj_est=traj_est_primal_dual, traj_est_ub=traj_est_MM_belomestny2013, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8, lambda_=lambda_, p=100)
+                #     inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                #     information.append(inf_list) 
+                    
+
+                # label_=f'SZH (2013) KU100 -{steps}'
+                # print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=SZH2013(d, n_stopping_rights, True, grid=inner_sim_SZH, K_low=K_L_basic,K_up=K_U_SZH2013, traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8)
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)    
+
+                label_=f'Belom. et al. (2009) KU100-{steps}'
+                print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                list_inf=main(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_basic,K_up=K_U_belomestny2009, K_noise=50, traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8) 
+                inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                information.append(inf_list)   
+
+
+                # label_ = f'AB (2004)-{steps}'
+                # print(''.join(np.repeat('-', 10)), label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=AndersonBroadie2004(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_AndersenBroadie2004, K_noise=None, traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub//4, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8) 
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)
+
+                # label_ = f'AB (2004)-{steps}'
+                # print(''.join(np.repeat('-', 10)), label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=AndersonBroadie2004(d, n_stopping_rights, True, grid=inner_sim*3//4, K_low=K_L_AndersenBroadie2004, K_noise=None, traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub//4, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8) 
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)
+
+                # label_ = f'GM (2004)-{steps}'
+                # print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
+                # list_inf=Glassermann(d, n_stopping_rights, True, grid=K_L_Glasserman2004, K_low=K_L_Glasserman2004, K_noise=None, traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8) 
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
+                # information.append(inf_list)    
+                
+
+                # with open(f'run{datetime.now().strftime("%Y%m%d%H%m%S")}.pic', 'wb') as fh:
+                #     pic.dump(information, fh)
+                # repo.create_file(f'resultfiles/run{datetime.now().strftime("%Y%m%d%H%m%S")}.txt', f'run{datetime.now().strftime("%Y%m%d%H%m%S")}.txt', str(information), branch='main')
+
     table_ = tabulate(utils.information_format(information), headers=utils.header_, tablefmt="latex_raw", floatfmt=".4f")
 
     print(table_)
-    # folder_txt_log = '/content/drive/MyDrive/'#Tilburg/msc/Thesis/Log'
-    # fh = open(f'logresults.txt', 'a')
-    # fh.write(f'{datetime.now()}\n ')
-    # fh.writelines(table_)
-    # line="".join(np.repeat('*',75))
-    # fh.write(f'\n {line} \n')
-    # fh.close()
+
+
+

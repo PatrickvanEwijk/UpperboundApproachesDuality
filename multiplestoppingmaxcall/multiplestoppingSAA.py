@@ -18,13 +18,12 @@ np.set_printoptions(linewidth=300, edgeitems=6)
 time_training=[]
 time_testing=[]
 time_ub=[]
-def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_train_ub=10000, traj_test_ub=20000, K_low=200, K_up=10, S_0=110, strike=100, seed=0, mode_desai_BBS_BHS='desai'):
+def main(d=3, L=3, print_progress=True, steps=9, T=3, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_train_ub=10000, traj_test_ub=20000, K_low=200, K_up=10, S_0=110, strike=100, seed=0, mode_desai_BBS_BHS='desai', mean_BBS=1, std_BBS=0.01, lambda_lasso=1/100, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
     time_training=[]
     time_testing=[]
     time_ub=[]
     utils.set_seeds(seed)
-    steps= 9
-    T=3
+ 
     dt = T/steps
     traj=traj_est
     sigma = 0.2
@@ -35,7 +34,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+2000)
     model_nn_rng = np.random.default_rng(seed+4000)
-    sim_s = 3.5*dt
+    sim_s = .5*dt
     S_0_train=S_0 *np.exp( train_rng.normal(size=(traj, 1, d))*sigma*(sim_s)**.5 - .5*sigma**2*sim_s)
     discount_f= np.exp(-r*dt)
     dWS= train_rng.normal(size=(traj, steps, d)).astype(np.float32)*((dt)**0.5)
@@ -59,11 +58,9 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
 
     model_ = model_SAA(model_nn_rng, seed, input_size_lb, K_lower, steps, d, K_upper, input_size_ub, L=L, mode_kaggle=mode_kaggle)
 
-    stop_val = payoff_option(S[:,-1,:])*discount_f**steps
-    stop_val_testing = payoff_option(S2[:,-1,:])*discount_f**steps
-    stop_val_ub= payoff_option(S3[:,-1,:])*discount_f**steps
+    payoff_option = lambda x: payoff_(x, strike)
     if mode_kaggle:
-        step_size=traj_test_ub
+        step_size=10000
     else:
         step_size = (1000*150*500)//K_up//grid
     create_loop_grid = lambda traj: list(np.unique(np.clip(np.arange(0, traj+step_size, step_size, dtype=int), 0, traj)))
@@ -88,6 +85,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
             stop_val = np.where(ex_ind, payoff_underlying+prev_right_c, con_val)#np.where(ex_ind, payoff_underlying, stop_val) 
     t1_training=datetime.now()
     time_training.append(t1_training-t0_training)  
+    S = S_0*np.exp( np.cumsum(np.hstack((np.zeros((traj,1,d)), dWS*sigma)), axis=1) + np.repeat( (r - delta_dividend - sigma**2/2)*time_, d).reshape(steps+1,d)) # start from time-0 in optimisation problems rather than -1/2.
 
     #### TESTING - LB ####
     stop_val_testing=0
@@ -112,78 +110,89 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     M2_train_basisfunctions = np.zeros((traj_train_ub, steps, K_up))
     M2_test_basisfunctions = np.zeros((traj_test_ub, steps, K_up))
     t0_ub = datetime.now()
-    for time in range(steps):
-        for paths_t, paths_t_p1, M, traj in [(S3[:,time,:],S3[:,time+1,:], M2_train_basisfunctions, traj_train_ub), (S4[:,time,:],S4[:,time+1,:], M2_test_basisfunctions, traj_test_ub)]:  
-            cur_payoff_t_p1 = payoff_option(paths_t_p1)*discount_f**(time+1)
-            reg_m_t_p1= np.hstack((paths_t_p1, cur_payoff_t_p1[:,None]))
-            traj_inner_ = np.exp( sigma*np.random.randn(traj, d, grid)*(dt)**.5  + (r-delta_dividend-sigma**2/2)*dt)*(paths_t)[:,:,None]
-            cur_payoff_inner = payoff_option(np.swapaxes(traj_inner_, 1,2))*discount_f**(time+1) 
-            reg_m_t_sim_p1 = np.hstack((traj_inner_, cur_payoff_inner[:,None, :])).transpose(0, 2, 1)
-            reg_m_inner = reg_m_t_sim_p1.reshape(-1, reg_m_t_sim_p1.shape[-1])
-            basis_f_inner= []
-            inner_ = create_loop_grid_slice(traj)
-            for index_start, index_end in inner_:
-                slice_length = index_end-index_start
-                exp_basis_func_tp1_inner= np.mean(model_.random_basis_LS_upper(reg_m_inner[index_start*grid:index_end*grid,:]).reshape(slice_length,grid, K_up), axis=1)
-                basis_f_inner.append(exp_basis_func_tp1_inner)
-            exp_basis_func_tp1_inf_t=np.vstack((basis_f_inner))
-            M[:,time, :] = np.copy(model_.random_basis_LS_upper(reg_m_t_p1) - exp_basis_func_tp1_inf_t)
+    # for time in range(steps):
+    #     for paths_t, paths_t_p1, M, traj in [(S3[:,time,:],S3[:,time+1,:], M2_train_basisfunctions, traj_train_ub), (S4[:,time,:],S4[:,time+1,:], M2_test_basisfunctions, traj_test_ub)]:  
+    #         cur_payoff_t_p1 = payoff_option(paths_t_p1)*discount_f**(time+1)
+    #         reg_m_t_p1= np.hstack((paths_t_p1, cur_payoff_t_p1[:,None]))
+    #         traj_inner_ = np.exp( sigma*np.random.randn(traj, d, grid)*(dt)**.5  + (r-delta_dividend-sigma**2/2)*dt)*(paths_t)[:,:,None]
+    #         cur_payoff_inner = payoff_option(np.swapaxes(traj_inner_, 1,2))*discount_f**(time+1) 
+    #         reg_m_t_sim_p1 = np.hstack((traj_inner_, cur_payoff_inner[:,None, :])).transpose(0, 2, 1)
+    #         reg_m_inner = reg_m_t_sim_p1.reshape(-1, reg_m_t_sim_p1.shape[-1])
+    #         basis_f_inner= []
+    #         inner_ = create_loop_grid_slice(traj)
+    #         for index_start, index_end in inner_:
+    #             slice_length = index_end-index_start
+    #             exp_basis_func_tp1_inner= np.mean(model_.random_basis_LS_upper(reg_m_inner[index_start*grid:index_end*grid,:]).reshape(slice_length,grid, K_up), axis=1)
+    #             basis_f_inner.append(exp_basis_func_tp1_inner)
+    #         exp_basis_func_tp1_inf_t=np.vstack((basis_f_inner))
+    #         M[:,time, :] = np.copy(model_.random_basis_LS_upper(reg_m_t_p1) - exp_basis_func_tp1_inf_t)
 
 
 
-    # for time in range(steps):       
-    #     traj_inner_ = np.exp(  (train_rng.normal(size=(traj_train_ub, d, grid)).astype(np.float32)*((dt)**0.5)*sigma)  + (r-delta_dividend-sigma**2/2)*dt)*(S3[:, time, :][:,:,None])
-    #     cur_payoff_inner = np.vstack(([payoff_option(traj_inner_[:,:,i]) for i in range(grid)])).T *discount_f**(time+1)
-    #     reg_m_t_sim_p1 = np.hstack((traj_inner_, cur_payoff_inner[:,None, :])).transpose(0, 2, 1)
-    #     reg_m_inner = reg_m_t_sim_p1.reshape(-1, reg_m_t_sim_p1.shape[-1])
-    #     basis_f_inner= []
-    #     inner_ = create_loop_grid_slice(traj_train_ub)
-    #     for index_start, index_end in inner_:
-    #         slice_length = index_end-index_start
-    #         basis_f=model_.random_basis_LS(reg_m_inner[index_start*grid:index_end*grid,:]).reshape(slice_length,grid, K_low)
-    #         exp_basis_func_tp1_inner= np.mean(basis_f, axis=1)
-    #         basis_f_inner.append(exp_basis_func_tp1_inner)
-    #     exp_basis_func_tp1_inf_t=np.vstack((basis_f_inner))
+    for time in range(steps):       
+        traj_inner_ = np.exp(  (np.random.normal(size=(traj_train_ub, d, grid)).astype(np.float32)*((dt)**0.5)*sigma)  + (r-delta_dividend-sigma**2/2)*dt)*(S3[:, time, :][:,:,None])
+        cur_payoff_inner = payoff_option(traj_inner_.transpose(0, 2, 1))*discount_f**(time+1)#np.vstack(([payoff_option(traj_inner_[:,:,i]) for i in range(grid)])).T *discount_f**(time+1)
+        reg_m_t_sim_p1 = np.hstack((traj_inner_, cur_payoff_inner[:,None, :])).transpose(0, 2, 1)
+        reg_m_inner = reg_m_t_sim_p1.reshape(-1, reg_m_t_sim_p1.shape[-1])
+        basis_f_inner= []
+        inner_ = create_loop_grid_slice(traj_train_ub)
+        for index_start, index_end in inner_:
+            slice_length = index_end-index_start
+            basis_f=model_.random_basis_LS_upper(reg_m_inner[index_start*grid:index_end*grid,:]).reshape(slice_length,grid, K_up)
+            exp_basis_func_tp1_inner= np.mean(basis_f, axis=1)
+            basis_f_inner.append(exp_basis_func_tp1_inner)
+        exp_basis_func_tp1_inf_t=np.vstack((basis_f_inner))
 
-    #     cur_payoff_t_p1 = payoff_option(S3[:, time+1, :])*discount_f**(time+1)
-    #     reg_m_t_p1= np.hstack((S3[:, time+1, :], cur_payoff_t_p1[:,None]))
-    #     basis_func_tp1=model_.random_basis_LS(reg_m_t_p1)
-    #     M2_train_basisfunctions[:,time] = np.copy(basis_func_tp1 - exp_basis_func_tp1_inf_t)
+        cur_payoff_t_p1 = payoff_option(S3[:, time+1, :])*discount_f**(time+1)
+        reg_m_t_p1= np.hstack((S3[:, time+1, :], cur_payoff_t_p1[:,None]))
+        basis_func_tp1=model_.random_basis_LS_upper(reg_m_t_p1)
+        M2_train_basisfunctions[:,time] = np.copy(basis_func_tp1 - exp_basis_func_tp1_inf_t)
 
 
-    #     traj_inner_testing = np.exp( (test_rng.normal(size=(traj_test_ub, d, grid)).astype(np.float32)*((dt)**0.5)*sigma) + (r-delta_dividend-sigma**2/2)*dt)*(S4[:, time, :][:,:,None])
-    #     cur_payoff_inner_testing = np.vstack(([payoff_option(traj_inner_testing[:,:,i]) for i in range(grid)])).T *discount_f**(time+1)
-    #     reg_m_t_sim_p1_test = np.hstack((traj_inner_testing, cur_payoff_inner_testing[:,None, :])).transpose(0, 2, 1)
-    #     reg_m_inner_test = reg_m_t_sim_p1_test.reshape(-1, reg_m_t_sim_p1_test.shape[-1])
-    #     basis_f_inner_test= []
-    #     inner_ = create_loop_grid_slice(traj_test_ub)
-    #     for index_start, index_end in inner_:
-    #         slice_length = index_end-index_start
-    #         basis_f_test=model_.random_basis_LS(reg_m_inner_test[index_start*grid:index_end*grid,:]).reshape(slice_length,grid, K_low)
-    #         exp_basis_func_tp1_inner_test= np.mean(basis_f_test, axis=1)
-    #         basis_f_inner_test.append(exp_basis_func_tp1_inner_test)
-    #     exp_basis_func_tp1_inf_test=np.vstack((basis_f_inner_test))
+        traj_inner_testing = np.exp( (np.random.normal(size=(traj_test_ub, d, grid)).astype(np.float32)*((dt)**0.5)*sigma) + (r-delta_dividend-sigma**2/2)*dt)*(S4[:, time, :][:,:,None])
+        cur_payoff_inner_testing = payoff_option(traj_inner_testing.transpose(0, 2, 1))*discount_f**(time+1) #np.vstack(([payoff_option(traj_inner_testing[:,:,i]) for i in range(grid)])).T *discount_f**(time+1)
+        reg_m_t_sim_p1_test = np.hstack((traj_inner_testing, cur_payoff_inner_testing[:,None, :])).transpose(0, 2, 1)
+        reg_m_inner_test = reg_m_t_sim_p1_test.reshape(-1, reg_m_t_sim_p1_test.shape[-1])
+        basis_f_inner_test= []
+        inner_ = create_loop_grid_slice(traj_test_ub)
+        for index_start, index_end in inner_:
+            slice_length = index_end-index_start
+            basis_f_test=model_.random_basis_LS_upper(reg_m_inner_test[index_start*grid:index_end*grid,:]).reshape(slice_length,grid, K_up)
+            exp_basis_func_tp1_inner_test= np.mean(basis_f_test, axis=1)
+            basis_f_inner_test.append(exp_basis_func_tp1_inner_test)
+        exp_basis_func_tp1_inf_test=np.vstack((basis_f_inner_test))
 
-    #     cur_payoff_t_p1_testing = payoff_option(S4[:, time+1, :])*discount_f**(time+1)
-    #     reg_m_t_p1_testing= np.hstack((S4[:,time+1,:], cur_payoff_t_p1_testing[:,None]))
-    #     basis_func_tp1_test=model_.random_basis_LS(reg_m_t_p1_testing)
-    #     M2_test_basisfunctions[:,time] = np.copy(basis_func_tp1_test - exp_basis_func_tp1_inf_test)
+        cur_payoff_t_p1_testing = payoff_option(S4[:, time+1, :])*discount_f**(time+1)
+        reg_m_t_p1_testing= np.hstack((S4[:,time+1,:], cur_payoff_t_p1_testing[:,None]))
+        basis_func_tp1_test=model_.random_basis_LS_upper(reg_m_t_p1_testing)
+        M2_test_basisfunctions[:,time] = np.copy(basis_func_tp1_test - exp_basis_func_tp1_inf_test)
 
-    payoff_process_manipulated = payoff_option(S3)*discount_f**np.arange(steps+1) # Desai et al. 2012     
+    payoff_process_MM = payoff_option(S3)*discount_f**np.arange(steps+1) # Desai et al. 2012     
+    payoff_process_manipulated=np.zeros((traj_train_ub, L)) # Randomised time 0 payoff for each exercise right.
     if mode_desai_BBS_BHS.lower()=='bbs':
-        ### Pilot simulation for mean of A in Belomestny & Schoenmakers 2024.
-        stop_val_testing_pilot=0  
-        stop_val_testing_round=payoff_option(S2[:,-1,:])*discount_f**stop_time
-        for time in range(steps)[::-1]:
-            underlying_test = S2[:,time,:]
-            cur_payoff_testing_pilot = payoff_option(underlying_test)*discount_f**time
-            reg_m_testing_pilot=np.hstack((underlying_test, cur_payoff_testing_pilot[:,None]))
-            con_val_no_ex = model_.prediction_conval_model1(reg_m_testing_pilot, traj_test_lb, time, L-1-ex_right)      
-            ex_ind = ((cur_payoff_testing_pilot>=con_val_no_ex) & (time> prev_stop_time))
-            stop_val_testing_pilot = np.where(ex_ind, cur_payoff_testing_pilot, stop_val_testing_pilot)
-        payoff_process_manipulated[:,0] = np.abs(train_rng.normal( 3/4*np.mean(stop_val_testing_pilot), .3*np.std(payoff_option(S2[:,-1,:])*discount_f**stop_time),  size=(payoff_process_manipulated.shape[0]))) # Belomestny & Schoenmakers 2024.
+        ### Pilot simulation for mean of A in Belomestny & Schoenmakers 2024, for each level.
+        traj_pilot = 50000 if traj_test_lb>=50000 else traj_test_lb
+        for rights_all in range(1,L+1):
+            prev_stop_time_pilot=-1   
+            stop_val_pilot=0 
+            for ex_right in range(rights_all):
+                stop_time_pilot=steps+1-(rights_all-ex_right)
+                stop_val_testing_round=payoff_option(S2[:traj_pilot,stop_time_pilot,:])*discount_f**stop_time_pilot
+                for time in range(steps)[-(rights_all-ex_right)::-1]:
+                    underlying_pilot = S2[:traj_pilot,time,:]
+                    cur_payoff_pilot = payoff_option(underlying_pilot)*discount_f**time
+                    reg_m_testing=np.hstack((underlying_pilot, cur_payoff_pilot[:,None]))
+                    con_val_no_ex = model_.prediction_conval_model1(reg_m_testing, traj_pilot, time, rights_all-1-ex_right)      
+                    con_val_ex= model_.prediction_conval_model1(reg_m_testing, traj_pilot, time, rights_all-2-ex_right) if rights_all-1-ex_right>0 else 0
+                    ex_ind = ((cur_payoff_pilot+con_val_ex>=con_val_no_ex) & (time> prev_stop_time_pilot))
+                    stop_val_testing_round = np.where(ex_ind, cur_payoff_pilot, stop_val_testing_round)
+                    stop_time_pilot = np.where(ex_ind, time, stop_time_pilot)
+                prev_stop_time_pilot = np.copy(stop_time_pilot)
+                stop_val_pilot+=stop_val_testing_round
 
-    r_opt, u_opt, compile_time, solver_time= model_.LP_multiple(payoff_process_manipulated, M2_train_basisfunctions, print_progress=True, mode_BHS=(mode_desai_BBS_BHS.lower()=='bhs'), lasso_penalty=1/10000, timelimit=1060)
+            payoff_process_manipulated[:,rights_all-1] = train_rng.normal( mean_BBS*np.mean(stop_val_pilot), std_BBS*np.std(stop_val_pilot),  size=(traj_train_ub)) # Belomestny & Schoenmakers 2024.
+    randomised_t0_payoffBBS=payoff_process_manipulated if  mode_desai_BBS_BHS.lower()=='bbs' else None
+    r_opt, u_opt, compile_time, solver_time= model_.LP_multiple(payoff_process_MM, M2_train_basisfunctions, print_progress=True, mode_BHS=(mode_desai_BBS_BHS.lower()=='bhs'), lasso_penalty=lambda_lasso, timelimit=1060, randomised_t0_payoffBBS=randomised_t0_payoffBBS)
     print('t-compile',compile_time)
     print('t-solver',solver_time)
     print(u_opt)
@@ -273,42 +282,69 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     return lowerbound, lowerbound_std, upperbound, upperbound_std,  np.mean(np.array(time_training)), np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std
 
 
+from itertools import product
+traj_test_ub= 20000 
+traj_est_primal_dual = 200000
+traj_est_MM = 6000
+traj_est_primal_dual_desai=13000
+traj_est_MM_belomestny2013=13000
+K_lower=400
+traj_lb_testing = 100000
+information=[]
+steps=9
+
+
+T=3
+basis_f_K_U_MM=110
+basis_f_K_U_MM_desai=150
+basis_f_K_U_MM_belomestny2013=300
+K_L_basic= 250
+K_U_belomestny2009=  lambda n_stopping_rights: 300 - 5*n_stopping_rights 
+K_U_SZH2013=lambda n_stopping_rights: 200 - 8*n_stopping_rights 
+K_L_AndersenBroadie2004={1:600, 2: 400, 3:350, 4:300}
+K_L_Glasserman2004=lambda AB: int(AB*4//3)
+basis_f_K_U_MM_BHS=int(basis_f_K_U_MM*1.9)
+traj_est_MM_BHS=int(traj_est_MM*1.4)
+grid_Glasserman2004=800
+inner_sim_SZH=300
+inner_sim_AB=700
+fine_grid_belomestny2009= 300
+
 information=[]
 if __name__=='__main__':
-    for d,s0,n_stopping_rights in [ (2, 90, 5)]:#, (2, 90, 6), (2,90, 5), (2, 90, 1)]:
-        for grid in [700]:
+    for d,s0,n_stopping_rights in [ (5, 90, 3)]:#, (2, 90, 6), (2,90, 5), (2, 90, 1)]:
+        for grid in [900]:
             print(''.join(['*' for j in range(10)]), grid ,''.join(['*' for j in range(10)]))
             for i in range(1):                
                 print(''.join(['-' for j in range(10)]), i , ''.join(['-' for j in range(10)]))
-
-
                 # list_inf = main(d, n_stopping_rights, True, grid=grid, K_low=150,K_up=20, traj_est=100000, traj_test_ub=10000, traj_train_ub=5000, traj_test_lb=20000, S_0=s0, seed=i+8, mode_desai_BBS_BHS='bbs') 
                 # label_= 'bbs 1'
                 # inf_cols = [d, s0, n_stopping_rights, '', '', '', '']
                 # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
                 # information.append(inf_list)
+                # for mean_A, std_A in [*list(product([.2, .6, 1, 1.2], [0.01, 0.05, .3, 1.0, 1.75])), (1.0, 0.0)]:
+                #     print(f'mean {mean_A} - std {std_A}')
+                #     list_inf = main(d, n_stopping_rights, True, grid=grid, K_low=300,K_up=200, traj_est=200000, traj_test_ub=13000, traj_train_ub=8000, traj_test_lb=200000, S_0=s0, seed=i+8, mode_desai_BBS_BHS='desai') 
+                #     label_= f'desai 90,{n_stopping_rights},13000'
+                #     inf_cols = [mean_A, std_A , n_stopping_rights, '', '', '', '']
+                #     inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
+                #     information.append(inf_list)
 
-                list_inf = main(d, n_stopping_rights, True, grid=grid, K_low=100,K_up=150, traj_est=100000, traj_test_ub=10000, traj_train_ub=7500, traj_test_lb=200000, S_0=s0, seed=i+8, mode_desai_BBS_BHS='bbs') 
-                label_= 'bbs'
-                inf_cols = [d, s0, n_stopping_rights, '', '', '', '']
+                inf_cols= [d, s0, n_stopping_rights, '', '', '', '']
+                label_ =f'Desai et al. (2012)-{steps}'
+                print(''.join(np.repeat('-', 10)),label_, grid, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))                             
+                list_inf=main(d, n_stopping_rights, True,steps=steps,T=T, grid=grid, K_low=K_L_basic,K_up=basis_f_K_U_MM_desai, traj_est=traj_est_primal_dual, traj_train_ub=traj_est_primal_dual_desai,traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0, seed=i+8, mode_desai_BBS_BHS='desai')
                 inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
-                information.append(inf_list)
+                information.append(inf_list)  
 
-
-                list_inf = main(d, n_stopping_rights, True, grid=grid, K_low=150,K_up=150, traj_est=100000, traj_test_ub=10000, traj_train_ub=7500, traj_test_lb=200000, S_0=s0, seed=i+8, mode_desai_BBS_BHS='desai') 
-                label_= 'desai'
-                inf_cols = [d, s0, n_stopping_rights, '', '', '', '']
-                inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
-                information.append(inf_list)
-
-                list_inf = main(d, n_stopping_rights, True, grid=grid, K_low=150,K_up=250, traj_est=100000, traj_test_ub=10000, traj_train_ub=7500, traj_test_lb=200000, S_0=s0, seed=i+8, mode_desai_BBS_BHS='bhs') 
-                label_= 'bhs'
-                inf_cols = [d, s0, n_stopping_rights, '', '', '', '']
-                inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
-                information.append(inf_list)
-
-    # with open(f'run{datetime.now().strftime("%Y%m%d%H%m%S")}.pic', 'wb') as fh:
-    #     pic.dump(information, fh)
+                # list_inf = main(d, n_stopping_rights, True, grid=grid, K_low=150,K_up=250, traj_est=100000, traj_test_ub=10000, traj_train_ub=7500, traj_test_lb=200000, S_0=s0, seed=i+8, mode_desai_BBS_BHS='bhs') 
+                # label_= 'bhs'
+                # inf_cols = [d, s0, n_stopping_rights, '', '', '', '']
+                # inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
+                # information.append(inf_list)
+    information.sort(key=lambda x: (x[1], x[2]))
+    with open(f'run{datetime.now().strftime("%Y%m%d%H%m%S")}.pic', 'wb') as fh:
+        pic.dump(information, fh)
    
     table_ = tabulate(utils.information_format(information), headers=utils.header_, tablefmt="latex_raw", floatfmt=".4f")
     print(table_)

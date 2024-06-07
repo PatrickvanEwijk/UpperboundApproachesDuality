@@ -20,10 +20,10 @@ class model_():
     def __init__(self, model_seed, seed_keras, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, K_noise=None, L=1, mode_kaggle=False):
         utils.set_seeds(seed_keras)
 
-        connect_bias_lb=1 
-        connect_bias_ub=1
-        connect_w_lb=1
-        connect_w_ub=1
+        # connect_bias_lb=1 
+        # connect_bias_ub=1
+        # connect_w_lb=1
+        # connect_w_ub=1
         scale_=1
         initializer_w_lb=  [keras.initializers.RandomNormal(stddev=1)]#[constant_initializer(model_seed.normal( 0, scale_, size=(input_size_lb, K_lower)))]
         initializer_b_lb=  [constant_initializer(model_seed.normal( 0, scale_, size=(K_lower,)))] 
@@ -40,9 +40,9 @@ class model_():
 
 
         ## Lowerbound
-        mask_b_lb=[(np.random.rand(layer)<=connect_bias_lb) for layer in layers_lb]
+        # mask_b_lb=[(np.random.rand(layer)<=connect_bias_lb) for layer in layers_lb]
         layers_all_lb = [input_size_lb,*layers_lb]
-        mask_w_lb=[(np.random.rand(layers_all_lb[i],layers_all_lb[i+1])<=connect_w_lb) for i in range(len(layers_all_lb)-1) ]
+        # mask_w_lb=[(np.random.rand(layers_all_lb[i],layers_all_lb[i+1])<=connect_w_lb) for i in range(len(layers_all_lb)-1) ]
         self.model = keras.Sequential()
         self.K=K_lower
         self.steps=steps
@@ -53,22 +53,22 @@ class model_():
         self.model.add(keras.Input(shape=(input_size_lb,)))
         for layer_number, nodes in enumerate(layers_lb):
             self.model.add(keras.layers.Dense(nodes, activation=activation_f_lower, kernel_initializer= initializer_w_lb[layer_number], bias_initializer= initializer_b_lb[layer_number],  name=f'layer{layer_number}'))
-            self.model.layers[-1].kernel.assign(multiply(self.model.layers[-1].kernel, mask_w_lb[layer_number]))
-            self.model.layers[-1].bias.assign(multiply(self.model.layers[-1].bias, mask_b_lb[layer_number]))
+            # self.model.layers[-1].kernel.assign(multiply(self.model.layers[-1].kernel, mask_w_lb[layer_number]))
+            # self.model.layers[-1].bias.assign(multiply(self.model.layers[-1].bias, mask_b_lb[layer_number]))
         if L>1:
             self.theta_coeff = np.zeros((K_lower+1,L, steps))
         else:
             self.theta_coeff = np.zeros((K_lower+1, steps))
         ## Upperbound
-        mask_b_ub=[(np.random.rand(layer)<=connect_bias_ub) for layer in layers_ub]
+        # mask_b_ub=[(np.random.rand(layer)<=connect_bias_ub) for layer in layers_ub]
         layers_all_ub = [input_size_ub,*layers_ub]
-        mask_w_ub=[(np.random.rand(layers_all_ub[i],layers_all_ub[i+1])<=connect_w_ub) for i in range(len(layers_all_ub)-1) ]
+        # mask_w_ub=[(np.random.rand(layers_all_ub[i],layers_all_ub[i+1])<=connect_w_ub) for i in range(len(layers_all_ub)-1) ]
         self.model_ub = keras.Sequential()
         self.model_ub.add(keras.Input(shape=(input_size_ub,)))
         for layer_number, nodes in enumerate(layers_ub):
             self.model_ub.add(keras.layers.Dense(nodes, activation=activation_f_upper, kernel_initializer= initializer_w_ub[layer_number], bias_initializer= initializer_b_ub[layer_number],  name=f'layer{layer_number}'))
-            self.model_ub.layers[-1].kernel.assign(multiply(self.model_ub.layers[-1].kernel, mask_w_ub[layer_number]))
-            self.model_ub.layers[-1].bias.assign(multiply(self.model_ub.layers[-1].bias, mask_b_ub[layer_number]))
+            # self.model_ub.layers[-1].kernel.assign(multiply(self.model_ub.layers[-1].kernel, mask_w_ub[layer_number]))
+            # self.model_ub.layers[-1].bias.assign(multiply(self.model_ub.layers[-1].bias, mask_b_ub[layer_number]))
         if L>1:
             self.beta_coeff_upper = np.zeros((K_upper, L, steps, d))
         else:
@@ -76,6 +76,7 @@ class model_():
 
         self.model_ub_s = keras.Sequential()
         self.model_ub_s.add(keras.Input(shape=(input_size_ub,)))
+        self.K_noise=K_noise
         if K_noise is not None:
             for layer_number, nodes in enumerate([K_noise]):
                 self.model_ub_s.add(keras.layers.Dense(nodes, activation=activation_f_upper, kernel_initializer= initializer_w_s[layer_number], bias_initializer= initializer_b_s[layer_number],  name=f'layer{layer_number}'))
@@ -83,7 +84,7 @@ class model_():
     
     random_basis_LS= lambda self,x: self.model(x, training=False).numpy() 
     random_basis_LS_upper= lambda self, x:  self.model_ub(x, training=False).numpy() 
-    random_basis_LS_noise= lambda self, x: self.model_ub_s(x, training=False).numpy()
+    random_basis_LS_noise= lambda self, x: self.model_ub_s(x, training=False).numpy() if self.K_noise is not None else None
 
     def prediction_conval_model1(self, reg_m, traj, time, ex_right=0):
         if self.theta_coeff.ndim>2:
@@ -92,6 +93,14 @@ class model_():
             theta=self.theta_coeff[:, time]
         return np.maximum(np.hstack((np.ones((traj,1)), self.random_basis_LS(reg_m))) @ theta,0)
 
+    def prediction_conval_model1_all_rights(self, reg_m, traj, time, ex_right=0):
+        if self.theta_coeff.ndim>2:
+            theta_all=self.theta_coeff[:, :, time].T
+        else:
+            theta_all=(self.theta_coeff[:, time][:,None]).T
+        return np.vstack([np.maximum(np.hstack((np.ones((traj,1)), self.random_basis_LS(reg_m))) @ theta,0) for theta in theta_all]).T
+    
+
     def prediction_conval_model2(self, reg_m, time, trajub, ex_right=0):
         if self.theta_coeff.ndim>2:
             theta=self.theta_coeff[:, ex_right, time]
@@ -99,6 +108,7 @@ class model_():
             theta=self.theta_coeff[:, time]
         return  np.maximum(np.einsum('ijk, k-> ij',np.hstack((np.ones((reg_m.shape[0],1)), self.random_basis_LS(reg_m))).reshape(-1, trajub, self.K+1) , theta),0)
     
+
     
 class model_HaughKaugen(model_):
      """ 
@@ -107,8 +117,11 @@ class model_HaughKaugen(model_):
      """
      def train_finallayer_continuationvalue(self, reg_m,y, time, traj, jump, ex_right=0):
         reg_mbasis_f= self.random_basis_LS(reg_m)
-        reg_mbasis_f_W= np.hstack([ self.random_basis_LS_noise(reg_m)* (jump[:, d])[:, None] for d in range(jump.shape[1])])
-        reg_functions_all = np.hstack((reg_mbasis_f,reg_mbasis_f_W))
+        if self.K_noise is not None:
+            reg_mbasis_f_W= np.hstack([ self.random_basis_LS_noise(reg_m)* (jump[:, d])[:, None] for d in range(jump.shape[1])])
+            reg_functions_all = np.hstack((reg_mbasis_f,reg_mbasis_f_W))
+        else:
+            reg_functions_all=reg_mbasis_f
         linear_regression_output= linear_model.LinearRegression().fit(reg_functions_all,y)       
     
         theta= np.hstack((linear_regression_output.intercept_, linear_regression_output.coef_[: reg_mbasis_f.shape[1]]))
@@ -127,8 +140,11 @@ class model_Belomestny_etal(model_):
     """
     def train_finallayer_continuationvalue(self, reg_m,y, time, traj, jump, ex_right=0):
         reg_mbasis_f= self.random_basis_LS(reg_m)
-        reg_mbasis_f_W= np.hstack([ self.random_basis_LS_noise(reg_m)* (jump[:, d])[:, None] for d in range(jump.shape[1])])
-        reg_functions_all = np.hstack((reg_mbasis_f,reg_mbasis_f_W))
+        if self.K_noise is not None:
+            reg_mbasis_f_W= np.hstack([ self.random_basis_LS_noise(reg_m)* (jump[:, d])[:, None] for d in range(jump.shape[1])])
+            reg_functions_all = np.hstack((reg_mbasis_f,reg_mbasis_f_W))
+        else:
+            reg_functions_all=reg_mbasis_f            
         linear_regression_output= linear_model.LinearRegression().fit(reg_functions_all,y)       
     
         theta= np.hstack((linear_regression_output.intercept_, linear_regression_output.coef_[: reg_mbasis_f.shape[1]]))
@@ -140,7 +156,7 @@ class model_Belomestny_etal(model_):
     
     def train_finallayer_continuationvalue_upper(self, reg_m,y, time, traj, ex_right=0, dW=None):
         reg_mbasis_f= self.random_basis_LS_upper(reg_m).astype(np.float32)
-        if dW is not None:
+        if dW is not None and self.K_noise is not None:
             noise_term = np.einsum('ij,ik->ijk', self.random_basis_LS_noise(reg_m).astype(np.float32),dW).reshape(reg_m.shape[0], -1)
             reg_mbasis_f= np.hstack((reg_mbasis_f,noise_term))
         linear_regression_output= linear_model.LinearRegression(fit_intercept=False).fit(reg_mbasis_f,y)
@@ -185,70 +201,6 @@ class model_Belomestny_etal(model_):
 
     
      
-class model_Schoenmakers2(model_):
-    """ 
-     Class based on Schoenmakers (2010).
-     Upperbound parameterisation and lowerbound simultaneously estimated in single regression at each time step.
-    """
-    def __init__(self,model_seed, seed_keras, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, layers_ub_s=5, L=1, mode_kaggle=False):
-        super().__init__(model_seed, seed_keras, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, layers_ub_s, L, mode_kaggle)
-        if L>1:
-            self.beta_coeff_upper = np.zeros((K_upper*d, L, steps))
-        else:
-            self.beta_coeff_upper = np.zeros((K_upper*d, steps))
-
-    def train_finallayer_continuationvalue(self, reg_m,y, time, traj, jump,dt, mode=0, ex_right=0):
-        reg_mbasis_f= self.random_basis_LS(reg_m)
-       
-        if mode ==0: # Mode=0: no denoise terms
-            trans_basisf=self.random_basis_LS_upper(reg_m).reshape(-1, self.d, self.K_upper)
-            reg_mbasis_f_W = np.einsum('ijk,ij->ijk', trans_basisf, jump)
-            reg_functions_all = np.hstack((reg_mbasis_f.reshape(-1, reg_mbasis_f.shape[-1]* reg_mbasis_f.shape[-2]),reg_mbasis_f_W.reshape(-1, reg_mbasis_f.shape[-1]* reg_mbasis_f.shape[-2])))
-            linear_regression_output= linear_model.Ridge(alpha=0.01).fit(reg_functions_all,y)
-        else:
-            trans_basisf=self.random_basis_LS_upper(reg_m).reshape(-1, self.K_upper)
-            reg_mbasis_f_W = np.einsum('ij,ik->ijk', trans_basisf, jump)
-            trans_basisf_denoise= np.dstack([ (self.random_basis_LS_upper(reg_m)* (jump[:, 0]**2-dt)[:, None])[:,:,None] for d in range(jump.shape[1])])
-
-            reg_functions_all = np.hstack((reg_mbasis_f,reg_mbasis_f_W.reshape(traj,-1),trans_basisf_denoise.reshape(traj,-1)))
-            linear_regression_output= linear_model.Ridge(alpha=0.01).fit(reg_functions_all,y)
-        theta= np.hstack((linear_regression_output.intercept_, linear_regression_output.coef_[: self.K]))
-        if self.theta_coeff.ndim>2:
-            self.theta_coeff[:,ex_right, time]=theta
-            self.beta_coeff_upper[:,ex_right, time]=linear_regression_output.coef_[self.K: self.K_upper*self.d+ self.K]
-        else:
-            self.theta_coeff[:,time]=theta
-            self.beta_coeff_upper[:,time]=linear_regression_output.coef_[self.K: self.K_upper*self.d+ self.K]
-        return np.hstack((np.ones((traj,1)), reg_mbasis_f)) @ theta
-    
-    def prediction_Z_model_upper(self, reg_m, traj, time, jump, ex_right=0):
-        """
-        Function to predict Z(psi)dW term.
-        """
-        if self.beta_coeff_upper.ndim>2:
-            beta=self.beta_coeff_upper[:, ex_right, time].reshape(self.K_upper, self.d)
-        else:
-            beta=self.beta_coeff_upper[:, time].reshape(self.K_upper, self.d)
-        trans_bf= self.random_basis_LS_upper(reg_m).reshape(-1, self.K_upper)
-        reg_mbasis_f_W = np.einsum('ij,jk->ik', trans_bf, beta)
-        return np.einsum('ik,ik->i', reg_mbasis_f_W, jump)
-        #return reg_mbasis_f_W@ beta
-      
-        
-    def prediction_Z_model_upper2(self, reg_m, traj, fine_grid, jump, ex_right=0):
-        """
-        Function to predict Z(psi)dW term , but in a parralel way.
-        """
-        if self.beta_coeff_upper.ndim>2:
-            beta=self.beta_coeff_upper[:, ex_right, :].reshape(self.d, self.K_upper, self.steps)
-        else:
-            beta=self.beta_coeff_upper.reshape(self.K_upper, 1 , self.steps)
-        s_dim = reg_m.shape[0]
-        t_dim = reg_m.shape[1]
-        reg_m= reg_m.reshape(-1, reg_m.shape[-1], order='F')
-        
-        trans_bf= self.random_basis_LS_upper(reg_m).reshape(s_dim,t_dim, self.K_upper, order='F')
-        return np.einsum('ijkd, jkd->ij', np.einsum('ijk, ijd->ijkd', trans_bf, jump), np.repeat(beta, fine_grid, axis=-1).T)
    
        
 
@@ -267,7 +219,7 @@ class model_Schoenmakers(model_):
     def train_finallayer_continuationvalue(self, reg_m,y, time, traj, jump,dt, mode=0, ex_right=0):
         reg_mbasis_f= self.random_basis_LS(reg_m)
        
-        if mode ==0: # Mode=0: no denoise terms
+        if mode ==0 or self.K_noise is None: # Mode=0: no denoise terms
             trans_basisf=self.random_basis_LS_upper(reg_m).reshape(-1, self.d, self.K_upper//self.d)
             reg_mbasis_f_W = np.einsum('ijk,ij->ik', trans_basisf, jump)
             reg_functions_all = np.hstack((reg_mbasis_f,reg_mbasis_f_W))
@@ -335,7 +287,7 @@ class model_SchoenmakersSZH(model_):
     def train_finallayer_continuationvalue(self, reg_m,y, time, traj, jump,dt, mode=0, ex_right=0):
         reg_mbasis_f= self.random_basis_LS(reg_m)
        
-        if mode ==0: # Mode=0: no denoise terms
+        if mode ==0 or self.K_noise is None: # Mode=0: no denoise terms
             trans_basisf=self.random_basis_LS_upper(reg_m).reshape(-1, self.d, self.K_upper//self.d)
             reg_mbasis_f_W = np.einsum('ijk,ij->ik', trans_basisf, jump)
             reg_functions_all = np.hstack((reg_mbasis_f,reg_mbasis_f_W))
@@ -396,7 +348,7 @@ class model_SAA(model_HaughKaugen):
     In which G_t^i denotes the discounted payoff at time t for trajectory i and M_t^i(psi) the constructed martingale respectively.
     """
 
-    def LP_multiple(self, payoff_paths, created_martingale_incrs, print_progress=True, mode_BHS=False, lasso_penalty = 1/100, timelimit=None):
+    def LP_multiple(self, payoff_paths, created_martingale_incrs, print_progress=True, mode_BHS=False, lasso_penalty = 1/100, timelimit=None, randomised_t0_payoffBBS=None):
         """
         Function which applies Linear problems of 3 papers (Desai et al., 2012; Belomestny, Bender, Schoenmakers, 2024; Belomestny, Hildebrand, Schoenmakers, 2017).
         *(mode_BHS=False) Desai et al. 2012: min_psi mean_i \max_t (\G_t^i-M_t^i(psi))
@@ -411,6 +363,9 @@ class model_SAA(model_HaughKaugen):
             payoff_paths: np.array() of shape (N, T+1) in which N denotes the number of sample trajectories and T the number of time steps; (T+1) due to time 0 included.
             created_martingale_incrs: np.array() of shape (N, T+1, K) in which N denotes the number of sample trajectories and T the number of time steps; (T+1) due to time 0 included. K denotes the number of martingale increments from the basis functions.
             mode_BHS: See above. True for algorithm  Belomestny, Hildebrand, Schoenmakers, 2017 and False otherwise.
+            lasso_penalty: Weight on lasso penalty term used in optimisation.
+            timelimit: Time limit used in algorithm (Default no time limit).
+            randomised_t0_payoffBBS: Randomised time 0 payoff in the Belomestny, Bender, Schoenmakers, 2024 algorithm. Only impact for  Belomestny, Bender, Schoenmakers, 2024 algorithm.
 
         Output:
            r_res: np.array() of shape (K, self.ex_rights, T+1), with optimal coefficients for martingale increments (to create best martingale).
@@ -456,13 +411,18 @@ class model_SAA(model_HaughKaugen):
             if n>20000 and self.K>150 and self.mode_kaggle==False: # Set Gurobi settings for large model: Reduce Threads to 1 and set Presolve to 2.
                 LP.Params.Presolve=2
                 LP.Params.Threads=1
+            else:
+                LP.Params.Threads=os.cpu_count()
             r = LP.addMVar((p, t), vtype=gb.GRB.CONTINUOUS, lb=-1*gb.GRB.INFINITY, name='r_VAR')
             g = LP.addMVar((p, t), vtype=gb.GRB.CONTINUOUS, lb=-1*gb.GRB.INFINITY, name='g_VAR') #LASSO penalty term 
             LP.addConstr(g>=r)#LASSO penalty term 
             LP.addConstr(g>=-1*r)#LASSO penalty term 
 
             if mode_BHS==False:
-                u = LP.addMVar((n,), vtype=gb.GRB.CONTINUOUS, lb=payoff_paths[:,0], name='u_VAR')
+                if randomised_t0_payoffBBS is not None: # Belomestny, Bender, Schoenmakers (2024)
+                    u = LP.addMVar((n,), vtype=gb.GRB.CONTINUOUS, lb=randomised_t0_payoffBBS[:,0], name='u_VAR')
+                else: # Desai et al. (2012)
+                    u = LP.addMVar((n,), vtype=gb.GRB.CONTINUOUS, lb=payoff_paths[:,0], name='u_VAR')
                 LP.setObjective(1/n*gb.quicksum(u[i] for i in range(n))+lasso_penalty*g.sum(), gb.GRB.MINIMIZE) #LASSO penalty term 
             else: # Type Belomestny Hildebrand Schoenmakers maximum penaltisation-> focus on worst case maximum difference rather than average
                 u = LP.addVar(vtype=gb.GRB.CONTINUOUS, lb=np.max(payoff_paths[:,0]))
@@ -517,7 +477,10 @@ class model_SAA(model_HaughKaugen):
                 LP.remove([LP.getVarByName(name) for name in name_g_vars_removed[ex_right]])# UPDATE: Make sure that max not due to final values-> exercise before or equal to #rights left == times left. If #times left<#rights left: set to constraint to become unbinding.
                 LP.remove([LP.getVarByName(name) for name in name_r_vars_removed[ex_right]])# UPDATE: Make sure that max not due to final values-> exercise before or equal to #rights left == times left. If #times left<#rights left: set to constraint to become unbinding.
                 if mode_BHS==False:
-                    LP.setAttr('LB', u_var, new_RHS[:,0])
+                    if randomised_t0_payoffBBS is not None: # Belomestny, Bender, Schoenmakers (2024)
+                        LP.setAttr('LB', u_var, randomised_t0_payoffBBS[:,ex_right])
+                    else: # Desai et al. (2012)
+                        LP.setAttr('LB', u_var, new_RHS[:,0])
                 else:
                     LP.setAttr('LB', u_var, np.max(new_RHS[:,0])) # Type Belomestny Hildebrand Schoenmakers maximum penaltisation-> focus on worst case maximum difference rather than average
                 t1=datetime.now()
@@ -655,7 +618,8 @@ class model_SAA(model_HaughKaugen):
         for right_num,r in enumerate(r_coeff):
             r_arr = np.zeros(K*(self.steps-right_num))
             r_arr[mask_instably_close0_flattened[:(self.steps-right_num)*K]==False]=r
-            r_res[:, right_num,:self.steps - right_num]= r_arr.reshape(self.steps- right_num, -1).T
+            if self.steps- right_num>0:
+                r_res[:, right_num,:self.steps - right_num]= r_arr.reshape(self.steps- right_num, -1).T
         if calc_nonsmoothenedTrainingUB:
             ### NON SMOOTHENED UB
             terminal_payoff2=payoff_paths[:,-1]

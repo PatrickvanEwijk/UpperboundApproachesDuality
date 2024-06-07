@@ -14,13 +14,12 @@ from tabulate import tabulate
 from datetime import datetime
 
 
-def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_noise=10, S_0=110, strike=100, seed=0):
+def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_noise=None, S_0=110, strike=100, seed=0, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
     time_training=[]
     time_testing=[]
     time_ub=[]
     utils.set_seeds(seed)
-    steps= 9
-    T=3
+    
     dt = T/steps
     traj=traj_est
     sigma = 0.2
@@ -31,7 +30,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+1000)
     model_nn_rng = np.random.default_rng(seed+4000)
-    sim_s = 3.5*dt
+    sim_s = .5*dt
     S_0_train=S_0 *np.exp( train_rng.normal(size=(traj, 1, d))*sigma*(sim_s)**.5 - .5*sigma**2*sim_s)
     discount_f= np.exp(-r*dt)
     dWS= train_rng.normal(size=(traj, steps, d)).astype(np.float32)*((dt)**0.5)
@@ -39,23 +38,22 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
     S2 = S_0*np.exp( np.cumsum(np.hstack((np.zeros((traj_test_lb,1,d)), test_rng.normal(size=(traj_test_lb, steps, d)).astype(np.float32)*((dt)**0.5)*sigma)), axis=1) + np.repeat( (r- delta_dividend - sigma**2/2)*time_, d).reshape(steps+1,d))
     S3 = S_0*np.exp( np.cumsum(np.hstack((np.zeros((traj_test_ub,1,d)),  test_rng.normal(size=(traj_test_ub, steps, d)).astype(np.float32)*((dt)**0.5)*sigma)), axis=1) + np.repeat( (r- delta_dividend - sigma**2/2)*time_, d).reshape(steps+1,d))
 
-    payoff_maxcal=  lambda x: np.maximum(np.max(x, axis=-1) - strike,0)
-    payoff_basketcall = lambda x: np.maximum(np.mean(x, axis=-1) - strike,0)
-    payoff_option =payoff_maxcal
+    
+    payoff_option = lambda x: payoff_(x, strike)
 
     K_lower= K_low
 
     input_size_lb= (1)*(d+1)
     input_size_ub=(1)*(d+1)
 
-    model_ = model_HaughKaugen(model_nn_rng, seed, input_size_lb, K_lower, steps, d, 0, input_size_ub, L=L,K_noise=K_noise, mode_kaggle=mode_kaggle, K_noise=None)
+    model_ = model_HaughKaugen(model_nn_rng, seed, input_size_lb, K_lower, steps, d, 0, input_size_ub, L=L, mode_kaggle=mode_kaggle, K_noise=K_noise)
 
     inner=grid
     M_incr=np.zeros((traj_test_ub, L, steps))
     if mode_kaggle:
         step_size=25000000
     else:
-        step_size = 500000
+        step_size = 300000
     inner_ = np.arange(0, inner*traj_test_ub+step_size, step_size, dtype=int)
     inner_[inner_>=inner*traj_test_ub] = inner*traj_test_ub
     inner_=np.unique(inner_)
@@ -102,7 +100,7 @@ def main(d=3, L=3, print_progress=True, traj_est=80000, grid=100, mode_kaggle=Fa
         # inner trajectories y^(l)_n,r
         dW_inner = np.random.randn(traj_test_ub, steps-time, d,inner).astype(np.float32)*(dt**0.5)*sigma
         dW_inner = np.cumsum(np.hstack(( np.zeros((traj_test_ub, 1, d, inner), dtype=np.float32), dW_inner)), axis=1)
-        traj_inner = np.exp( dW_inner  + np.tile((r-delta_dividend-sigma**2/2)*np.arange(0*dt, (steps+1-time)*dt, dt)[:,None,None], [1, d, inner]))*np.tile(underlying_upperbound[:,:,None,None], [1, 1, 1+steps-time, inner]).transpose((0, 2, 1, 3)) 
+        traj_inner = np.exp( dW_inner  + np.tile((r-delta_dividend-sigma**2/2)*np.arange(0*dt, (steps+1-time)*dt-.5*dt, dt)[:,None,None], [1, d, inner]))*np.tile(underlying_upperbound[:,:,None,None], [1, 1, 1+steps-time, inner]).transpose((0, 2, 1, 3)) # np.arange(0*dt, (steps+1-time)*dt-.5*dt, dt): -.5*dt to be sure that right end point not captured 
 
         con_val_ex_general=dict()
         for ex_right_l_ in [right for right in list(range(1, L+1)) if right< steps+1-time]:
