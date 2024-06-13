@@ -209,7 +209,7 @@ class model_Schoenmakers(model_):
      Class based on Schoenmakers (2010).
      Upperbound parameterisation and lowerbound simultaneously estimated in single regression at each time step.
     """
-    def __init__(self,model_seed, seed_keras, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, layers_ub_s=5, L=1, mode_kaggle=False):
+    def __init__(self,model_seed, seed_keras, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, layers_ub_s=None, L=1, mode_kaggle=False):
         super().__init__(model_seed, seed_keras, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, layers_ub_s, L, mode_kaggle)
         if L>1:
             self.beta_coeff_upper = np.zeros((K_upper//self.d, L, steps))
@@ -380,7 +380,7 @@ class model_SAA(model_HaughKaugen):
         p= created_martingale_incrs.shape[-1] # Use randomised NN as basis functions
 
         scaler_Mart_incr = np.std(created_martingale_incrs, axis=0) # np.max(np.abs(created_martingale_incrs_adj), axis=0) #
-        mask_instably_close0= scaler_Mart_incr<0.00001
+        mask_instably_close0= scaler_Mart_incr<0.0001
         created_martingale_incrs_adj=np.where(np.tile(mask_instably_close0[None,:,:], [n, 1, 1]), 0, created_martingale_incrs_adj/np.tile(scaler_Mart_incr[None,:,:], [n, 1, 1]))
         mask_instably_close0_solo = np.abs(created_martingale_incrs_adj)<0.00001
         created_martingale_incrs_adj=np.where(mask_instably_close0_solo, 0 , created_martingale_incrs_adj)
@@ -555,7 +555,7 @@ class model_SAA(model_HaughKaugen):
             fun = avg_term + sqrt_term_objective_var*std_term + ridge_penalty * (params_arr @ params_arr)
 
             d_expterm_d_psi_div_p= -np.cumsum(int_inner_term[:,:0:-1], axis=1)[:,::-1,None]  * created_martingale_incrs_adj
-            jac=np.tensordot((1/n + sqrt_term_objective_var*(diff_term_var/std_term))/int_inner_term_sum, d_expterm_d_psi_div_p, axes=(0,0)).flatten()[mask_instably_close0_flattened[:K*(self.steps-ex_right)]==False] + 2* ridge_penalty* params_arr 
+            jac=np.tensordot((1/n + sqrt_term_objective_var*(diff_term_var/std_term))/int_inner_term_sum, d_expterm_d_psi_div_p, axes=(0,0)).flatten()[mask_instably_close0_flattened[:K*(self.steps-ex_right)]==False] + 2* ridge_penalty* params_arr[mask_instably_close0_flattened[:K*(self.steps-ex_right)]==False]  
             return fun, jac
         
 

@@ -18,7 +18,7 @@ np.set_printoptions(linewidth=300, edgeitems=6)
 time_training=[]
 time_testing=[]
 time_ub=[]
-def main(d=3, L=3, print_progress=True, steps=9, T=3, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_train_ub=10000, traj_test_ub=20000, K_low=200, K_up=10, S_0=110, strike=100, seed=0, mode_desai_BBS_BHS='desai', mean_BBS=1, std_BBS=0.01, lambda_lasso=1/100, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
+def main(d=3, L=3, print_progress=True, steps=9, T=3,delta_dividend=0.1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_train_ub=10000, traj_test_ub=20000, K_low=200, K_up=10, S_0=110, strike=100, seed=0, mode_desai_BBS_BHS='desai', mean_BBS=1, std_BBS=0.0, lambda_lasso=1/100, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
     time_training=[]
     time_testing=[]
     time_ub=[]
@@ -29,7 +29,7 @@ def main(d=3, L=3, print_progress=True, steps=9, T=3, traj_est=80000, grid=100, 
     sigma = 0.2
     time_ = np.arange(0,T+0.5*dt, dt)
     r=0.05
-    delta_dividend= 0.1
+
 
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+2000)
@@ -90,6 +90,8 @@ def main(d=3, L=3, print_progress=True, steps=9, T=3, traj_est=80000, grid=100, 
     #### TESTING - LB ####
     stop_val_testing=0
     prev_stop_time=-1    
+    mean_stop_times=np.zeros(L)
+    std_stop_times=np.zeros(L)
     for ex_right in range(L):
         print('right=',ex_right)
         stop_time=steps+1-(L-ex_right)
@@ -103,6 +105,8 @@ def main(d=3, L=3, print_progress=True, steps=9, T=3, traj_est=80000, grid=100, 
             ex_ind = ((cur_payoff_testing+con_val_ex>=con_val_no_ex) & (time> prev_stop_time))
             stop_val_testing_round = np.where(ex_ind, cur_payoff_testing, stop_val_testing_round)
             stop_time = np.where(ex_ind, time, stop_time)
+        mean_stop_times[ex_right]=np.mean(stop_time)
+        std_stop_times[ex_right]=np.std(stop_time)
         prev_stop_time = np.copy(stop_time)
         stop_val_testing+=stop_val_testing_round
 
@@ -191,6 +195,7 @@ def main(d=3, L=3, print_progress=True, steps=9, T=3, traj_est=80000, grid=100, 
                 stop_val_pilot+=stop_val_testing_round
 
             payoff_process_manipulated[:,rights_all-1] = train_rng.normal( mean_BBS*np.mean(stop_val_pilot), std_BBS*np.std(stop_val_pilot),  size=(traj_train_ub)) # Belomestny & Schoenmakers 2024.
+            print('std pilot', std_BBS*np.std(stop_val_pilot))
     randomised_t0_payoffBBS=payoff_process_manipulated if  mode_desai_BBS_BHS.lower()=='bbs' else None
     r_opt, u_opt, compile_time, solver_time= model_.LP_multiple(payoff_process_MM, M2_train_basisfunctions, print_progress=True, mode_BHS=(mode_desai_BBS_BHS.lower()=='bhs'), lasso_penalty=lambda_lasso, timelimit=1060, randomised_t0_payoffBBS=randomised_t0_payoffBBS)
     print('t-compile',compile_time)
@@ -268,6 +273,9 @@ def main(d=3, L=3, print_progress=True, steps=9, T=3, traj_est=80000, grid=100, 
  
         print('Value', lowerbound)
         print('Std',lowerbound_std)
+        print('Stop time-mean', mean_stop_times)
+        print('Stop time-std', std_stop_times)
+        
         print('Upperbound')
         print('up', upperbound)
         print('std',upperbound_std)
@@ -312,8 +320,8 @@ fine_grid_belomestny2009= 300
 
 information=[]
 if __name__=='__main__':
-    for d,s0,n_stopping_rights in [ (5, 90, 3)]:#, (2, 90, 6), (2,90, 5), (2, 90, 1)]:
-        for grid in [900]:
+    for d,s0,n_stopping_rights in [ (3, 90, 1)]:#, (2, 90, 6), (2,90, 5), (2, 90, 1)]:
+        for grid in [100]:
             print(''.join(['*' for j in range(10)]), grid ,''.join(['*' for j in range(10)]))
             for i in range(1):                
                 print(''.join(['-' for j in range(10)]), i , ''.join(['-' for j in range(10)]))
@@ -333,7 +341,7 @@ if __name__=='__main__':
                 inf_cols= [d, s0, n_stopping_rights, '', '', '', '']
                 label_ =f'Desai et al. (2012)-{steps}'
                 print(''.join(np.repeat('-', 10)),label_, grid, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))                             
-                list_inf=main(d, n_stopping_rights, True,steps=steps,T=T, grid=grid, K_low=K_L_basic,K_up=basis_f_K_U_MM_desai, traj_est=traj_est_primal_dual, traj_train_ub=traj_est_primal_dual_desai,traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0, seed=i+8, mode_desai_BBS_BHS='desai')
+                list_inf=main(d, n_stopping_rights, True,steps=steps,T=T, grid=grid, K_low=K_L_basic,K_up=basis_f_K_U_MM_desai, traj_est=traj_est_primal_dual, traj_train_ub=traj_est_primal_dual_desai,traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0, seed=i+8, mode_desai_BBS_BHS='bbs')
                 inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
                 information.append(inf_list)  
 

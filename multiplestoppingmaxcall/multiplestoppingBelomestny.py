@@ -17,7 +17,7 @@ from datetime import datetime
 
 
 
-def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=100, K_noise=None, S_0=110, strike=100, seed=0, step_size=None, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
+def main(d=3, L=3, print_progress=True, steps=9,T=3,delta_dividend=0.1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=100, K_noise=None, S_0=110, strike=100, seed=0, step_size=None, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
     time_training=[]
     time_testing=[]
     utils.set_seeds(seed)
@@ -28,7 +28,6 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, m
     sigma = 0.2
     time_ = np.arange(0,T+0.5*dt, dt)
     r=0.05
-    delta_dividend= 0.1
 
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+2000)
@@ -105,6 +104,8 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, m
     #### TESTING - LB ####
     stop_val_testing=0
     prev_stop_time=-1    
+    mean_stop_times=np.zeros(L)
+    std_stop_times=np.zeros(L)
     for ex_right in range(L):
         print('right=',ex_right)
         stop_time=steps+1-(L-ex_right)
@@ -118,6 +119,8 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, m
             ex_ind = ((cur_payoff_testing+con_val_ex>=con_val_no_ex) & (time> prev_stop_time))
             stop_val_testing_round = np.where(ex_ind, cur_payoff_testing, stop_val_testing_round)
             stop_time = np.where(ex_ind, time, stop_time)
+        mean_stop_times[ex_right]=np.mean(stop_time)
+        std_stop_times[ex_right]=np.std(stop_time)
         prev_stop_time = np.copy(stop_time)
         stop_val_testing+=stop_val_testing_round
 
@@ -222,6 +225,9 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, m
  
         print('Value', lowerbound)
         print('Std',lowerbound_std)
+        print('Stop time-mean', mean_stop_times)
+        print('Stop time-std', std_stop_times)
+        
         print('Upperbound')
         print('up', upperbound)
         print('std',upperbound_std)

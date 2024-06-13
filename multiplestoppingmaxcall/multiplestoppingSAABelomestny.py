@@ -17,7 +17,7 @@ import gurobipy as gb
 time_training=[]
 time_testing=[]
 time_ub=[]
-def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, traj_est_ub=20000, K_low=200, K_up=200, K_noise=None, S_0=110, strike=100, seed=0, step_size=None, lambda_=1, p=100, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
+def main(d=3, L=3, print_progress=True, steps=9,T=3,delta_dividend=0.1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, traj_est_ub=20000, K_low=200, K_up=200, K_noise=None, S_0=110, strike=100, seed=0, step_size=None, lambda_=1, p=100, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
     time_training=[]
     time_testing=[]
     time_ub=[]
@@ -28,7 +28,7 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, m
     sigma = 0.2
     time_ = np.arange(0,T+0.5*dt, dt)
     r=0.05
-    delta_dividend= 0.1
+
 
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+2000)
@@ -91,7 +91,9 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, m
     S = S_0*np.exp( np.cumsum(np.hstack((np.zeros((traj,1,d)), dWS*sigma)), axis=1) + np.repeat( (r - delta_dividend - sigma**2/2)*time_, d).reshape(steps+1,d)) # start from time-0 in optimisation problems rather than -1/2.
     #### TESTING - LB ####
     stop_val_testing=0
-    prev_stop_time=-1    
+    prev_stop_time=-1  
+    mean_stop_times=np.zeros(L)
+    std_stop_times=np.zeros(L)  
     for ex_right in range(L):
         print('right=',ex_right)
         stop_time=steps+1-(L-ex_right)
@@ -105,6 +107,8 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, m
             ex_ind = ((cur_payoff_testing+con_val_ex>=con_val_no_ex) & (time> prev_stop_time))
             stop_val_testing_round = np.where(ex_ind, cur_payoff_testing, stop_val_testing_round)
             stop_time = np.where(ex_ind, time, stop_time)
+        mean_stop_times[ex_right]=np.mean(stop_time)
+        std_stop_times[ex_right]=np.std(stop_time)
         prev_stop_time = np.copy(stop_time)
         stop_val_testing+=stop_val_testing_round
 
@@ -176,59 +180,63 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3, traj_est=80000, grid=100, m
             theta_next_samelevel= np.maximum(cur_payoff_testing - M_incr_prevlevel + theta_next_prevlevel, -M_incr_samelevel +theta_next_samelevel)  if steps-ex_right>time else cur_payoff_testing - M_incr_prevlevel + theta_next_prevlevel
             theta_upperbound[:, ex_right, time] = np.copy(theta_next_samelevel)
 
-        ## LOWERBOUND
-        lowerbound= np.mean(stop_val_testing)
-        lowerbound_std = np.std(stop_val_testing)/(traj_test_lb)**.5
-    
-        #CONSTRUCT MARTINGALE
-        Dual_max_traj=theta_upperbound[:, -1,0]
-        upperbound = np.mean(Dual_max_traj)
-        upperbound_std= np.std(Dual_max_traj)/(traj_test_ub)**.5
-        M=np.dstack((np.zeros(M_incr.shape[:2])[:,:,None], M_incr ))
-        M= np.cumsum(M, axis=-1)
+    ## LOWERBOUND
+    lowerbound= np.mean(stop_val_testing)
+    lowerbound_std = np.std(stop_val_testing)/(traj_test_lb)**.5
 
-        #### CONTROL VARIATE#####
-        stop_val_testingcv=0
-        prev_stop_timeCV=np.repeat(-1, traj_test_ub)  
-        for ex_right in range(L):
-            print('right=',ex_right)
-            stop_timeCV= steps+1-(L-ex_right)
-            stop_val_testingCV_round=payoff_option(S4[:,stop_timeCV,:])*discount_f**stop_timeCV 
-            for time in range(steps)[-(L-ex_right)::-1]:
-                underlying_test = S4[:,time,:]
-                cur_payoff_testing = payoff_option(underlying_test)*discount_f**time
-                reg_m_testing=np.hstack((underlying_test, cur_payoff_testing[:,None]))
-                con_val_no_ex = model_.prediction_conval_model1(reg_m_testing, traj_test_ub, time, L-1-ex_right)      
-                con_val_ex= model_.prediction_conval_model1(reg_m_testing, traj_test_ub, time, L-2-ex_right) if L-1-ex_right>0 else 0
-                ex_ind = ((cur_payoff_testing+con_val_ex>=con_val_no_ex) & (time> prev_stop_timeCV))
-                stop_val_testingCV_round = np.where(ex_ind, cur_payoff_testing, stop_val_testingCV_round)
-                stop_timeCV = np.where(ex_ind, time, stop_timeCV)
-            
-            samples_array=np.arange(traj_test_ub)
-            m_incr_level = M[samples_array, L-1-ex_right,stop_timeCV] - M[samples_array, L-1-ex_right,prev_stop_timeCV] if ex_right>0 else M[samples_array, L-1-ex_right,stop_timeCV]
-            stop_val_testingcv+=stop_val_testingCV_round -m_incr_level
-            prev_stop_timeCV = np.copy(stop_timeCV)
+    #CONSTRUCT MARTINGALE
+    Dual_max_traj=theta_upperbound[:, -1,0]
+    upperbound = np.mean(Dual_max_traj)
+    upperbound_std= np.std(Dual_max_traj)/(traj_test_ub)**.5
+    M=np.dstack((np.zeros(M_incr.shape[:2])[:,:,None], M_incr ))
+    M= np.cumsum(M, axis=-1)
+
+    #### CONTROL VARIATE#####
+    stop_val_testingcv=0
+    prev_stop_timeCV=np.repeat(-1, traj_test_ub)  
+    for ex_right in range(L):
+        print('right=',ex_right)
+        stop_timeCV= steps+1-(L-ex_right)
+        stop_val_testingCV_round=payoff_option(S4[:,stop_timeCV,:])*discount_f**stop_timeCV 
+        for time in range(steps)[-(L-ex_right)::-1]:
+            underlying_test = S4[:,time,:]
+            cur_payoff_testing = payoff_option(underlying_test)*discount_f**time
+            reg_m_testing=np.hstack((underlying_test, cur_payoff_testing[:,None]))
+            con_val_no_ex = model_.prediction_conval_model1(reg_m_testing, traj_test_ub, time, L-1-ex_right)      
+            con_val_ex= model_.prediction_conval_model1(reg_m_testing, traj_test_ub, time, L-2-ex_right) if L-1-ex_right>0 else 0
+            ex_ind = ((cur_payoff_testing+con_val_ex>=con_val_no_ex) & (time> prev_stop_timeCV))
+            stop_val_testingCV_round = np.where(ex_ind, cur_payoff_testing, stop_val_testingCV_round)
+            stop_timeCV = np.where(ex_ind, time, stop_timeCV)
+        
+        samples_array=np.arange(traj_test_ub)
+        m_incr_level = M[samples_array, L-1-ex_right,stop_timeCV] - M[samples_array, L-1-ex_right,prev_stop_timeCV] if ex_right>0 else M[samples_array, L-1-ex_right,stop_timeCV]
+        stop_val_testingcv+=stop_val_testingCV_round -m_incr_level
+        prev_stop_timeCV = np.copy(stop_timeCV)
+    
+
+    CV_lowerbound=np.mean(stop_val_testingcv)
+    CV_lowerbound_std= np.std(stop_val_testingcv)/(traj_test_ub**0.5)
+    if print_progress:
+        print(np.mean(M[:,-3:],axis=0))
+        print('Lowerbound')
+
+        print('Value', lowerbound)
+        print('Std',lowerbound_std)
+        print('Stop time-mean', mean_stop_times)
+        print('Stop time-std', std_stop_times)
         
 
-        CV_lowerbound=np.mean(stop_val_testingcv)
-        CV_lowerbound_std= np.std(stop_val_testingcv)/(traj_test_ub**0.5)
-        if print_progress:
-            print(np.mean(M[:,-3:],axis=0))
-            print('Lowerbound')
-    
-            print('Value', lowerbound)
-            print('Std',lowerbound_std)
-            print('Upperbound')
-            print('up', upperbound)
-            print('std',upperbound_std)
-            # print('up2', upperbound2)
-            # print('std2', upperbound_std2)
+        print('Upperbound')
+        print('up', upperbound)
+        print('std',upperbound_std)
+        # print('up2', upperbound2)
+        # print('std2', upperbound_std2)
 
-            print('CV est',CV_lowerbound )
-            print('CV std', CV_lowerbound_std)
-            # print('time avg testing', np.mean(np.array(time_testing)))
-            print('time avg training', np.mean(np.array(time_training)))
-            print('time avg ub', np.mean(np.array(time_ub))) #  np.mean(np.array(time_training))
+        print('CV est',CV_lowerbound )
+        print('CV std', CV_lowerbound_std)
+        # print('time avg testing', np.mean(np.array(time_testing)))
+        print('time avg training', np.mean(np.array(time_training)))
+        print('time avg ub', np.mean(np.array(time_ub))) #  np.mean(np.array(time_training))
     return lowerbound, lowerbound_std, upperbound, upperbound_std, np.mean(np.array(time_training)), np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std
 
 
