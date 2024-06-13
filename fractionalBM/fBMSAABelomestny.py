@@ -14,14 +14,14 @@ from tabulate import tabulate
 from datetime import datetime
 
 
-def main(d=1,print_progress=True, steps= 9, traj_est=80000, grid=100, traj_test_lb=150000,traj_train_ub=8000, traj_test_ub=10000, K_low=200, K_up=10, hurst=0.7, seed=0, mode_kaggle=False, lambda_=1, L=1):
+def main(d=1,print_progress=True, steps= 9, T=1, traj_est=80000, grid=100, traj_test_lb=150000,traj_est_ub=8000, traj_test_ub=10000, K_low=200, K_up=10, hurst=0.7, seed=0, mode_kaggle=False, lambda_=1, L=1, p=100):
     time_training=[]
     time_testing=[]
     time_ub=[]
     utils.set_seeds(seed)
-    T=1
     dt = T/steps
     traj=traj_est
+    traj_train_ub=traj_est_ub
     time_ = np.arange(0,T+0.5*dt, dt)
     r=0.0
 
@@ -85,12 +85,17 @@ def main(d=1,print_progress=True, steps= 9, traj_est=80000, grid=100, traj_test_
   
    
     ## TESTING (Lowerbound)    
+    stop_times=np.repeat(steps,traj_test_lb)   
     for time in range(steps)[::-1]:
-        underlying_test = S2[:,time::-1, :]
+        ## TESTING (Lowerbound)
+        underlying_test = S2[:,time::-1,:]
         cur_payoff_testing = payoff_option(underlying_test)*discount_f**(time)
-        reg_m_testing= underlying_test.reshape(traj_test_lb, (time+1)*d) #np.hstack((underlying_test, cur_payoff_testing[:,None]))
+        reg_m_testing= underlying_test.reshape(traj_test_lb, (time+1)*d)#np.hstack((underlying_test, cur_payoff_testing[:,None]))
         con_val_testing= model_.prediction_conval_model1(reg_m_testing, traj_test_lb, time)
         stop_val_testing = np.where(cur_payoff_testing<con_val_testing, stop_val_testing, cur_payoff_testing)
+        stop_times = np.where(cur_payoff_testing<con_val_testing,stop_times, time)
+    mean_stop_times=np.mean(stop_times)   
+    std_stop_times=np.std(stop_times)
 
    ### Constructing family of martingale increments
     M2_train_basisfunctions = np.zeros((traj_train_ub, steps, K_up))
@@ -114,12 +119,12 @@ def main(d=1,print_progress=True, steps= 9, traj_est=80000, grid=100, traj_test_
                 exp_basis_func_tp1_inner= np.mean(model_.random_basis_LS_upper(reg_m_inner[index_start*grid:index_end*grid,:], time+1).reshape(slice_length,grid, K_up), axis=1)
                 basis_f_inner.append(exp_basis_func_tp1_inner)
             exp_basis_func_tp1_inf_t=np.vstack((basis_f_inner))
-            M[:,time, :] = model_.random_basis_LS(reg_m_t_p1, time+1) - exp_basis_func_tp1_inf_t
+            M[:,time, :] = model_.random_basis_LS_upper(reg_m_t_p1, time+1) - exp_basis_func_tp1_inf_t
 
     
 
     payoff_process_manipulated = np.max(S3, axis=-1)*discount_f**np.arange(steps+1) 
-    r_opt, theta_ub_nonsmoothened, fun_smoothened= model_.LP_BELOM_BFGS_multiple(payoff_process_manipulated, M2_train_basisfunctions, print_progress=True, lambda_=lambda_, p=50, calc_nonsmoothenedTrainingUB=True)
+    r_opt, theta_ub_nonsmoothened, fun_smoothened, solver_time= model_.LP_BELOM_BFGS_multiple(payoff_process_manipulated, M2_train_basisfunctions, print_progress=True, lambda_=lambda_, p=p, calc_nonsmoothenedTrainingUB=True, ridge_penalty=1/100)
     print(fun_smoothened)
     ##################################
 
@@ -216,6 +221,8 @@ def main(d=1,print_progress=True, steps= 9, traj_est=80000, grid=100, traj_test_
         print('Lowerbound')
         print('Value', lowerbound)
         print('Std',lowerbound_std)
+        print('Stop time-mean', mean_stop_times)
+        print('Stop time-std', std_stop_times)
 
         print('Upperbound')
         print('up', upperbound)
@@ -227,8 +234,7 @@ def main(d=1,print_progress=True, steps= 9, traj_est=80000, grid=100, traj_test_
         print('CV std', CV_lowerbound_std)
         print('time avg training', np.mean(np.array(time_training)))
         print('time avg ub', np.mean(np.array(time_ub)))
-    return lowerbound, lowerbound_std, upperbound, upperbound_std, np.mean(np.array(time_training)), np.mean(np.array(time_ub)), upperbound2, upperbound_std2,  CV_lowerbound, CV_lowerbound_std
-
+    return lowerbound, lowerbound_std, upperbound, upperbound_std, np.mean(np.array(time_training)), np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std, upperbound2, upperbound_std2
 
 
 information=[]

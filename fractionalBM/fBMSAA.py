@@ -14,12 +14,11 @@ from tabulate import tabulate
 from datetime import datetime
 
 
-def main(d=1,print_progress=True, steps= 9, traj_est=80000, grid=100, step_inner=True, traj_test_lb=150000, traj_test_ub=10000, traj_train_ub=8000, K_low=200, K_up=10, hurst=0.7, seed=0, mode_kaggle=False, L=1, mode_desai_BBS_BHS='desai', mean_BBS=1, std_BBS=0.01):
+def main(d=1,print_progress=True, steps= 9, T=1, traj_est=80000, grid=100, step_inner=True, traj_test_lb=150000, traj_test_ub=10000, traj_train_ub=8000, K_low=200, K_up=10, hurst=0.7, seed=0, mode_kaggle=False, L=1, mode_desai_BBS_BHS='desai', mean_BBS=1, std_BBS=0.0, lambda_lasso=1/100):
     time_training=[]
     time_testing=[]
     time_ub=[]
     utils.set_seeds(seed)
-    T=1
     dt = T/steps
     traj=traj_est
     time_ = np.arange(0,T+0.5*dt, dt)
@@ -85,12 +84,17 @@ def main(d=1,print_progress=True, steps= 9, traj_est=80000, grid=100, step_inner
   
    
     ## TESTING (Lowerbound)    
+    stop_times=np.repeat(steps,traj_test_lb)   
     for time in range(steps)[::-1]:
-        underlying_test = S2[:,time::-1, :]
+        ## TESTING (Lowerbound)
+        underlying_test = S2[:,time::-1,:]
         cur_payoff_testing = payoff_option(underlying_test)*discount_f**(time)
-        reg_m_testing= underlying_test.reshape(traj_test_lb, (time+1)*d) #np.hstack((underlying_test, cur_payoff_testing[:,None]))
+        reg_m_testing= underlying_test.reshape(traj_test_lb, (time+1)*d)#np.hstack((underlying_test, cur_payoff_testing[:,None]))
         con_val_testing= model_.prediction_conval_model1(reg_m_testing, traj_test_lb, time)
         stop_val_testing = np.where(cur_payoff_testing<con_val_testing, stop_val_testing, cur_payoff_testing)
+        stop_times = np.where(cur_payoff_testing<con_val_testing,stop_times, time)
+    mean_stop_times=np.mean(stop_times)   
+    std_stop_times=np.std(stop_times)
 
    ### Constructing family of martingale increments
     M2_train_basisfunctions = np.zeros((traj_train_ub, steps, K_up))
@@ -131,7 +135,7 @@ def main(d=1,print_progress=True, steps= 9, traj_est=80000, grid=100, step_inner
             stop_val_testing_pilot = np.where(cur_payoff_pilot<con_val_testing, stop_val_testing_pilot, cur_payoff_pilot)
         payoff_process_manipulated[:,0] = train_rng.normal( mean_BBS*np.mean(stop_val_testing_pilot), std_BBS*np.std(stop_val_testing_pilot), size=(payoff_process_manipulated.shape[0])) # Belomestny & Schoenmakers 2024.
 
-    r_opt, u_opt, compile_time, solver_time= model_.LP_multiple(payoff_process_manipulated, M2_train_basisfunctions, print_progress=True, mode_BHS=(mode_desai_BBS_BHS.lower()=='bhs'), lasso_penalty=1/100)
+    r_opt, u_opt, compile_time, solver_time= model_.LP_multiple(payoff_process_manipulated, M2_train_basisfunctions, print_progress=True, mode_BHS=(mode_desai_BBS_BHS.lower()=='bhs'), lasso_penalty=lambda_lasso)
     print('t-compile',compile_time)
     print('t-solver',solver_time)
     print(u_opt)
@@ -192,7 +196,7 @@ def main(d=1,print_progress=True, steps= 9, traj_est=80000, grid=100, step_inner
     exp_max = np.maximum.accumulate((stopping_process-M_2d)[:, ::-1], axis=1)[:, ::-1]
     U = exp_max +M_2d
 
-    U_w1 = np.maximum(np.max(S4[:,-1,:],-1)*discount_f**(steps), U[:,-1] )-M_2d[:,-1]
+    U_w1 = np.maximum(np.max(S4[:,-1,:],-1)*discount_f**(steps), U[:,-1])-M_2d[:,-1]
     for t_rough in range(steps)[::-1]:
         underlying_upperbound_test = S4[:,t_rough::-1,:]
         cur_payoff_ub_test = payoff_option(underlying_upperbound_test)*discount_f**(t_rough)
@@ -200,7 +204,6 @@ def main(d=1,print_progress=True, steps= 9, traj_est=80000, grid=100, step_inner
         con_val = model_.prediction_conval_model1(reg_m_, traj_test_ub, t_rough)
         ind_payoffnow=(con_val<=cur_payoff_ub_test)
         U_w1= np.where(ind_payoffnow, np.maximum(cur_payoff_ub_test, U[:, t_rough])-M_2d[:,t_rough], U_w1)
-
     upperbound2 = np.mean(U_w1)
     upperbound_std2= np.std(U_w1)/(traj_test_ub)**.5
 
@@ -232,6 +235,8 @@ def main(d=1,print_progress=True, steps= 9, traj_est=80000, grid=100, step_inner
         print('Lowerbound')
         print('Value', lowerbound)
         print('Std',lowerbound_std)
+        print('Stop time-mean', mean_stop_times)
+        print('Stop time-std', std_stop_times)
 
         print('Upperbound')
         print('up', upperbound)
@@ -243,7 +248,7 @@ def main(d=1,print_progress=True, steps= 9, traj_est=80000, grid=100, step_inner
         print('CV std', CV_lowerbound_std)
         print('time avg training', np.mean(np.array(time_training)))
         print('time avg ub', np.mean(np.array(time_ub)))
-    return lowerbound, lowerbound_std, upperbound, upperbound_std, np.mean(np.array(time_training)), np.mean(np.array(time_ub)), upperbound2, upperbound_std2,  CV_lowerbound, CV_lowerbound_std
+    return lowerbound, lowerbound_std, upperbound, upperbound_std, np.mean(np.array(time_training)), np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std, upperbound2, upperbound_std2 
 
 
 from itertools import product

@@ -17,12 +17,11 @@ from datetime import datetime
 
 
 
-def main(d=3, print_progress=True, steps= 100,traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=10, hurst=0.7, seed=0, step_size=None):
+def main(d=3, print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=10, hurst=0.7, seed=0, step_size=None):
     time_training=[]
     time_testing=[]
     time_ub=[]
     utils.set_seeds(seed)
-    T=1
     dt = T/steps
     traj=traj_est
     time_ = np.arange(0,T+0.5*dt, dt)
@@ -110,12 +109,17 @@ def main(d=3, print_progress=True, steps= 100,traj_est=80000, grid=100, mode_kag
     time_training.append(t1_training-t0_training)
 
     ## TESTING (Lowerbound)
-    for time in range(steps)[::-1]:      
-        underlying_test = S2[:,time::-1, :]
-        cur_payoff_testing = payoff_option(underlying_test)*discount_f**time
+    stop_times=np.repeat(steps,traj_test_lb)   
+    for time in range(steps)[::-1]:
+        ## TESTING (Lowerbound)
+        underlying_test = S2[:,time::-1,:]
+        cur_payoff_testing = payoff_option(underlying_test)*discount_f**(time)
         reg_m_testing= underlying_test.reshape(traj_test_lb, (time+1)*d)#np.hstack((underlying_test, cur_payoff_testing[:,None]))
         con_val_testing= model_.prediction_conval_model1(reg_m_testing, traj_test_lb, time)
         stop_val_testing = np.where(cur_payoff_testing<con_val_testing, stop_val_testing, cur_payoff_testing)
+        stop_times = np.where(cur_payoff_testing<con_val_testing,stop_times, time)
+    mean_stop_times=np.mean(stop_times)   
+    std_stop_times=np.std(stop_times)
 
     lowerbound = np.mean(stop_val_testing)
     lowerbound_std = np.std(stop_val_testing)/ (traj_test_lb**0.5)
@@ -200,6 +204,9 @@ def main(d=3, print_progress=True, steps= 100,traj_est=80000, grid=100, mode_kag
  
         print('Value', lowerbound)
         print('Std',lowerbound_std)
+        print('Stop time-mean', mean_stop_times)
+        print('Stop time-std', std_stop_times)
+        
         print('Upperbound')
         print('up', upperbound)
         print('std',upperbound_std)
@@ -210,7 +217,7 @@ def main(d=3, print_progress=True, steps= 100,traj_est=80000, grid=100, mode_kag
         print('CV std',CV_lowerbound_std)
         print('time avg training', np.mean(np.array(time_training)))
         print('time avg ub', np.mean(np.array(time_ub)))
-    return lowerbound, lowerbound_std, upperbound, upperbound_std,  np.mean(np.array(time_training)) ,  np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std, upperbound2, upperbound_std2
+    return lowerbound, lowerbound_std, upperbound, upperbound_std,  np.mean(np.array(time_training)), np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std, upperbound2, upperbound_std2
 
 information=[]
 if __name__=='__main__':
@@ -220,7 +227,7 @@ if __name__=='__main__':
             print(''.join(['*' for j in range(10)]), grid ,''.join(['*' for j in range(10)]))
             for i in range(1):                
                 print(''.join(['-' for j in range(10)]), i, ''.join(['-' for j in range(10)]))
-                list_inf=main(d, True, grid=grid, K_low=200,K_up=300, traj_est=300000, traj_test_ub=1000, traj_test_lb=50000, hurst=H, seed=i+8, mode_kaggle=True, steps=9)
+                list_inf=main(d, True, grid=grid, K_low=200,K_up=300, traj_est=100000, traj_test_ub=1000, traj_test_lb=50000, hurst=H, seed=i+8, mode_kaggle=True, steps=9)
                 inf_cols = [d, H, '', '', '', '']
                 inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
                 information.append(inf_list)

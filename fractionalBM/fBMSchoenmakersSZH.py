@@ -64,7 +64,7 @@ def main(d=1,print_progress=True,steps= 100, T=1, traj_est=80000, grid=100, step
 
     K_lower= K_low
     K_upper = K_up*d
-    mode_= 1
+    mode_= 0
     input_size_lb= (1)*(d)
     input_size_ub=(1)*(d)
 
@@ -80,8 +80,10 @@ def main(d=1,print_progress=True,steps= 100, T=1, traj_est=80000, grid=100, step
     inner_[inner_>=inner] = inner
     inner_=np.unique(inner_)
     inner_ = [inner_[i: i+2] for i in range(len(inner_)-1)]
+
+ 
     #### TRAINING #########
-    stop_val = np.max(S[:,-1,:], -1)*discount_f**steps
+    delta_SZH_stopping = np.max(S[:,-1,:], -1)*discount_f**steps
     stop_val_testing= np.max(S2[:,-1,:], -1)*discount_f**steps
     t0_training=datetime.now()
     for time in range(steps)[::-1]:    
@@ -90,8 +92,9 @@ def main(d=1,print_progress=True,steps= 100, T=1, traj_est=80000, grid=100, step
         underlying = S[:,time::-1,:]
         reg_m= underlying.reshape(traj_est, (time+1)*d)#np.hstack((underlying, payoff_underlying[:,None]))
         payoff_underlying=payoff_option(underlying)*discount_f**time
-        con_val = model_.train_finallayer_continuationvalue(reg_m,stop_val, time, traj, Z[time], dt, mode_)        
-        stop_val = np.where(payoff_underlying<con_val, stop_val, payoff_underlying)
+        con_val = model_.train_finallayer_continuationvalue(reg_m,delta_SZH_stopping, time, traj, Z[time], dt, mode_)
+        xi_=model_.prediction_Z_model_upper(reg_m, traj, time, Z[time])        
+        delta_SZH_stopping = np.where(payoff_underlying<con_val,  delta_SZH_stopping-xi_, payoff_underlying)
   
     t1_training=datetime.now()
     time_training.append(t1_training-t0_training)        
@@ -120,24 +123,6 @@ def main(d=1,print_progress=True,steps= 100, T=1, traj_est=80000, grid=100, step
     t0_fineincrement =datetime.now()
     M_incr=np.zeros((traj_test_ub, steps_fine))
     ## Loop
-    ################## To be programmed : in modelRobust2fBM ##################
-    # if mode_kaggle:
-    #     step_size=1000
-    #     steps_ub = np.arange(0,traj_test_ub+step_size, step_size)
-    #     steps_ub[steps_ub>=traj_test_ub]=traj_test_ub
-    #     steps_ub=np.unique(steps_ub)
-    #     M_incr_round= []
-    #     steps_ub = [(steps_ub[i],steps_ub[i+1]) for i in range(len(steps_ub)-1)]
-    #     for step_i, step_i_p in steps_ub:
-    #         underlying_upperbound_test = S4[step_i:step_i_p,:-1,:]
-    #         # print(underlying_upperbound_test.shape)
-    #         # cur_payoff_ub_test = payoff_option(underlying_upperbound_test)*discount_f_fine**np.arange(steps_fine)
-    #         reg_m_=underlying_upperbound_test# np.dstack((underlying_upperbound_test, cur_payoff_ub_test[:,:,None]))
-    #         M_incr_round.append(model_.prediction_Z_model_upper2(reg_m_, traj_test_ub, grid, dW_testingub[:, step_i:step_i_p])) # M_incr_round.append(model_.prediction_Z_model_upper2(reg_m_, traj_test_ub, grid, dW_testingub[step_i:step_i_p], ex_right))
-    #     M_incr_round=np.vstack(M_incr_round)
-    #     M_incr=M_incr_round
-    # else:
-    # for ex_right in range(L):
     for t_fine in range(steps_fine):
         print(t_fine)
         underlying_upperbound_test = S4[:,t_fine::-1,:] #if (t_fine+1)//grid<steps_fine else S4[:,t_fine,:]
@@ -191,7 +176,8 @@ def main(d=1,print_progress=True,steps= 100, T=1, traj_est=80000, grid=100, step
         print('Std',lowerbound_std)
         print('Stop time-mean', mean_stop_times)
         print('Stop time-std', std_stop_times)
-        
+
+        print('')
         print('Upperbound')
         print('up', upperbound)
         print('std',upperbound_std)
@@ -202,7 +188,7 @@ def main(d=1,print_progress=True,steps= 100, T=1, traj_est=80000, grid=100, step
         print('CV std', CV_lowerbound_std)
         print('time avg training', np.mean(np.array(time_training)))
         print('time avg ub', np.mean(np.array(time_ub)))
-    return lowerbound, lowerbound_std, upperbound, upperbound_std,  np.mean(np.array(time_training)) ,  np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std, upperbound2, upperbound_std2
+    return lowerbound, lowerbound_std, upperbound, upperbound_std,  np.mean(np.array(time_training)), np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std, upperbound2, upperbound_std2
 
 
 

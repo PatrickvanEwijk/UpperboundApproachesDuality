@@ -13,13 +13,11 @@ import pickle as pic
 from tabulate import tabulate
 from datetime import datetime
 
-def main(d=1,print_progress=True, steps= 100, traj_est=80000, grid=100, step_inner=True, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=10, hurst=0.7, seed=0, mode_kaggle=False):
+def main(d=1,print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, step_inner=True, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=10, hurst=0.7, seed=0, mode_kaggle=False):
     time_training=[]
     time_testing=[]
     time_ub=[]
     utils.set_seeds(seed)
-
-    T=1
     dt = T/steps
     traj=traj_est
     time_ = np.arange(0,T+0.5*dt, dt)
@@ -145,7 +143,8 @@ def main(d=1,print_progress=True, steps= 100, traj_est=80000, grid=100, step_inn
         M_incr[:, time]= Y_comp[:, time] - C_bar[:, time] 
     t1_upperbound = datetime.now()
     time_ub.append(t1_upperbound-t0_upperbound)
-      
+    
+    stop_times=np.repeat(steps,traj_test_lb)   
     for time in range(steps)[::-1]:
         ## TESTING (Lowerbound)
         underlying_test = S2[:,time::-1,:]
@@ -153,7 +152,9 @@ def main(d=1,print_progress=True, steps= 100, traj_est=80000, grid=100, step_inn
         reg_m_testing= underlying_test.reshape(traj_test_lb, (time+1)*d)#np.hstack((underlying_test, cur_payoff_testing[:,None]))
         con_val_testing= model_.prediction_conval_model1(reg_m_testing, traj_test_lb, time)
         stop_val_testing = np.where(cur_payoff_testing<con_val_testing, stop_val_testing, cur_payoff_testing)
-
+        stop_times = np.where(cur_payoff_testing<con_val_testing,stop_times, time)
+    mean_stop_times=np.mean(stop_times)   
+    std_stop_times=np.std(stop_times)
         
     #CONSTRUCT MARTINGALE
     lowerbound= np.mean(stop_val_testing)
@@ -198,7 +199,9 @@ def main(d=1,print_progress=True, steps= 100, traj_est=80000, grid=100, step_inn
         print('Lowerbound')
         print('Value', lowerbound)
         print('Std',lowerbound_std)
-
+        print('Stop time-mean', mean_stop_times)
+        print('Stop time-std', std_stop_times)
+        
         print('Upperbound')
         print('up', upperbound)
         print('std',upperbound_std)
@@ -209,8 +212,7 @@ def main(d=1,print_progress=True, steps= 100, traj_est=80000, grid=100, step_inn
         print('CV std', CV_lowerbound_std)
         print('time avg training', np.mean(np.array(time_training)))
         print('time avg ub', np.mean(np.array(time_ub)))
-    return lowerbound, lowerbound_std, upperbound, upperbound_std,  np.mean(np.array(time_training)) ,  np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std, upperbound2, upperbound_std2
-
+    return lowerbound, lowerbound_std, upperbound, upperbound_std,  np.mean(np.array(time_training)), np.mean(np.array(time_ub)), CV_lowerbound, CV_lowerbound_std, upperbound2, upperbound_std2
 
 
 information=[]
