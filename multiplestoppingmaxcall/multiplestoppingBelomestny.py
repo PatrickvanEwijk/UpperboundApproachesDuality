@@ -34,7 +34,7 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3,delta_dividend=0.1, traj_est
     model_nn_rng = np.random.default_rng(seed+4000)
    
     
-    sim_s = 3*dt
+    sim_s = .5*dt
     S_0_train=S_0 *np.exp(train_rng.normal(loc=0.0, scale=1.0, size=(traj, 1, d))*sigma*(sim_s)**.5 - .5*sigma**2*sim_s)
     dWs= train_rng.normal(loc=0.0, scale=1.0, size=(traj, steps, d)).astype(np.float32)*((dt)**0.5)
     S = S_0_train*np.exp( np.cumsum(np.hstack((np.zeros((traj,1,d)), dWs*sigma)), axis=1) + np.repeat( (r - delta_dividend - sigma**2/2)*time_, d).reshape(steps+1,d))

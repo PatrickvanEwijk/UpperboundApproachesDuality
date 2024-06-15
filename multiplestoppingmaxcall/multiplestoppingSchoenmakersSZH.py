@@ -30,7 +30,7 @@ def main(d=3, L=3, print_progress=True, steps=9,delta_dividend=0.1, T=3, traj_es
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+2000)
     model_nn_rng = np.random.default_rng(seed+4000)
-    sim_s = 3*dt
+    sim_s = .5*dt
     S_0_train=S_0 *np.exp( train_rng.normal(size=(traj, 1, d))*sigma*(sim_s)**.5 - .5*sigma**2*sim_s)
     discount_f= np.exp(-r*dt)
     dWS= train_rng.normal(size=(traj, steps, d)).astype(np.float32)*((dt)**0.5)
