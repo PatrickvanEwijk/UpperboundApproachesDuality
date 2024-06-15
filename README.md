@@ -1,7 +1,7 @@
 # Comparative Analysis of Upper Bound Approaches for high dimensional Stopping Problems
 This directory corresponds to an analysis of various upper bound duality approaches for stopping problems, based on the dual representation by Rogers (2002) and Haugh and Kogan (2004).
-The approaches are compared to the application of stopping a fractional Brownian motion and Bermudan max call (with multiple exercise rights, which should be used (if so) at different dates).
-Generally, the primal LSMC is implemented using the Longstaff & Schwartz approach (2001), but using all trajectories rather than the ones in-the-money.
+The approaches are compared to the application of stopping a fractional Brownian motion and Bermudan max call (with multiple exercise rights, which should be used (if so) at different dates). Randomised Neural Networks (related to Extreme Learning Machines) are used as basis functions.
+Generally, the primal LSMC is implemented using the Longstaff & Schwartz approach (2001)[^1] 
 
 ## Approaches
 ### Primal-Dual Inner Simulation
@@ -41,6 +41,16 @@ The result files have been stored in /resultfiles/.
 2. The Fuiji et al. (2011) simple improvement upper bound has been implemented in the python files for the fractional Brownian motion, but has not been implemented in the report. 
 In an earlier stage, this approach has shortly been considered. However, I did not invest significant time in this approach, so any use of this implementation should be undertaken with caution and at one's own risk.
 
+ ## Additional python scripts
+ 1. txt_to_pickle.py: Convert raw data from .txt format to list format which is stored in a pickle file.
+ 2. pickletotable.py: For a specified pickle file (or txt file, which uses txt_to_pickle.py to convert to pickle), print the table corresponding to a raw data file.
+ 3. creatinfiguresfromrawdata.py: File to create figures corresponding to raw data files, and saving these in .pdf format. 
+ 4. utils.py: General file, containing column names for printed tables, function for setting seeds, function for saving figures in a certain resolution, smoothening the somewhat ill defined names of the approaches in the raw data files.
+ 5. modelRrobust2MS.py & modelRrobust2fBM.py: Object Oriented Programming classes for the approaches. Respectively for the Bermudan Max Call with multiple exercise rights and stopping a fractional Brownian motion.
+
+
+[^1]: However, it is slightly adjusted as all trajectories are used rather than the ones in-the-money.
+
 ## Citation
  - Andersen, L., & Broadie, M. (2004). Primal-dual simulation algorithm for pricing multidimensional American options. Management Science, 50 (9), 1222–1234.
  - Belomestny, D. (2013). Solving optimal stopping problems via empirical dual optimization. The Annals of Applied Probability, 1988–2019.
@@ -56,10 +66,5 @@ In an earlier stage, this approach has shortly been considered. However, I did n
  - Longstaff, F. A., & Schwartz, E. S. (2001). Valuing american options by simulation: A simple least-squares approach. The review of financial studies, 14 (1), 113–147.
 
 
- ## Additional python scripts
- 1. txt_to_pickle.py: Convert raw data from .txt format to list format which is stored in a pickle file.
- 2. pickletotable.py: For a specified pickle file (or txt file, which uses txt_to_pickle.py to convert to pickle), print the table corresponding to a raw data file.
- 3. creatinfiguresfromrawdata.py: File to create figures corresponding to raw data files, and saving these in .pdf format. 
- 4. utils.py: General file, containing column names for printed tables, function for setting seeds, function for saving figures in a certain resolution, smoothening the somewhat ill defined names of the approaches in the raw data files.
- 5. modelRrobust2MS.py & modelRrobust2fBM.py: Object Oriented Programming classes for the approaches. Respectively for the Bermudan Max Call with multiple exercise rights and stopping a frational Brownian motion.
+
 
