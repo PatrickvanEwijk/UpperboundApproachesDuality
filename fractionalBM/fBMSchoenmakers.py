@@ -27,17 +27,15 @@ def main(d=1,print_progress=True,steps= 100, T=1, traj_est=80000, grid=100, step
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+2000)
     model_nn_rng = np.random.default_rng(seed+4000)
-    sim_s = 1*dt
     discount_f= np.exp(-r*dt)
     # 
     hurst2=2*hurst
     time_s=time_[:,None]
 
-    S_0 = np.random.randn(traj)*sim_s*1
     var_ = (time_s[1:]**hurst2 + time_[1:]**hurst2 - np.abs(time_[1:]-time_s[1:])**hurst2)/2
     B= np.linalg.cholesky(var_)
     Z = train_rng.normal(size=(steps,traj, d))
-    S =  np.vstack((np.zeros((1, traj, d)), np.tensordot(B, Z, axes=(1,0)))).transpose(1, 0, 2)+ S_0[:,None, None]
+    S =  np.vstack((np.zeros((1, traj, d)), np.tensordot(B, Z, axes=(1,0)))).transpose(1, 0, 2)
     
     ## ALTERNATIVE SIMULATING fBm but takes longer and requires fbm package, from fbm import FBM; generator = FBM(n=steps, hurst=hurst, length=T, method='daviesharte')
     # S2=[generator.fbm() for sample in range(traj_test_lb)]
