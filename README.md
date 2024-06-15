@@ -1,7 +1,7 @@
 # Comparative Analysis of Upper Bound Approaches for high dimensional Stopping Problems
 This directory corresponds to an analysis of various upper bound duality approaches for stopping problems, based on the dual representation by Rogers (2002) and Haugh and Kogan (2004).
 The approaches are compared to the application of stopping a fractional Brownian motion and Bermudan max call (with multiple exercise rights, which should be used (if so) at different dates). Randomised Neural Networks (related to Extreme Learning Machines) are used as basis functions.
-Generally, the primal LSMC is implemented using the Longstaff & Schwartz approach (2001)[^1] 
+Generally, the primal LSMC is implemented using the Longstaff & Schwartz approach (2001)[^1].
 
 ## Approaches
 ### Primal-Dual Inner Simulation
