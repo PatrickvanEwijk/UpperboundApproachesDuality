@@ -56,7 +56,7 @@ In an earlier stage, this approach has shortly been considered. However, I did n
  - Longstaff, F. A., & Schwartz, E. S. (2001). Valuing american options by simulation: A simple least-squares approach. The review of financial studies, 14 (1), 113–147.
 
 
- # Additional python scripts
+ ## Additional python scripts
  1. txt_to_pickle.py: Convert raw data from .txt format to list format which is stored in a pickle file.
  2. pickletotable.py: For a specified pickle file (or txt file, which uses txt_to_pickle.py to convert to pickle), print the table corresponding to a raw data file.
  3. creatinfiguresfromrawdata.py: File to create figures corresponding to raw data files, and saving these in .pdf format. 
