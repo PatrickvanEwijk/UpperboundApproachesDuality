@@ -27,17 +27,16 @@ def main(d=1,print_progress=True,steps= 100, T=1, traj_est=80000, grid=100, step
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+2000)
     model_nn_rng = np.random.default_rng(seed+4000)
-    sim_s = 1*dt
+
     discount_f= np.exp(-r*dt)
     # 
     hurst2=2*hurst
     time_s=time_[:,None]
 
-    S_0 = np.random.randn(traj)*sim_s*1
     var_ = (time_s[1:]**hurst2 + time_[1:]**hurst2 - np.abs(time_[1:]-time_s[1:])**hurst2)/2
     B= np.linalg.cholesky(var_)
     Z = train_rng.normal(size=(steps,traj, d))
-    S =  np.vstack((np.zeros((1, traj, d)), np.tensordot(B, Z, axes=(1,0)))).transpose(1, 0, 2)+ S_0[:,None, None]
+    S =  np.vstack((np.zeros((1, traj, d)), np.tensordot(B, Z, axes=(1,0)))).transpose(1, 0, 2)
     
     ## ALTERNATIVE SIMULATING fBm but takes longer and requires fbm package, from fbm import FBM; generator = FBM(n=steps, hurst=hurst, length=T, method='daviesharte')
     # S2=[generator.fbm() for sample in range(traj_test_lb)]
@@ -67,7 +66,6 @@ def main(d=1,print_progress=True,steps= 100, T=1, traj_est=80000, grid=100, step
     mode_= 0
     input_size_lb= (1)*(d)
     input_size_ub=(1)*(d)
-
     model_= model_Schoenmakers(model_nn_rng, seed, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, L=1, mode_kaggle=mode_kaggle)
     inner=grid
     
@@ -195,12 +193,12 @@ def main(d=1,print_progress=True,steps= 100, T=1, traj_est=80000, grid=100, step
 
 information=[]
 if __name__=='__main__':
-    for d,H in [ (2,0.2), (1,0.3), (1, 0.7)]:
+    for d,H in [ (1,0.45)]:
         for grid in [1]:
             print(''.join(['*' for j in range(10)]), grid ,''.join(['*' for j in range(10)]))
             for i in range(1):                
                 print(''.join(['-' for j in range(10)]), i , ''.join(['-' for j in range(10)]))
-                list_inf=main(d, True, grid=grid, K_low=200,K_up=150, traj_est=100000, traj_test_ub=1000, traj_test_lb=50000, hurst=H, seed=i+8, steps=9)
+                list_inf=main(d, True, grid=grid, K_low=200,K_up=70, traj_est=200000, traj_test_ub=1000, traj_test_lb=50000, hurst=H, seed=i+8, steps=49)
                 label_ = 'SM LS'
                 inf_cols = [d, H, '', '', '', '']
                 inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)

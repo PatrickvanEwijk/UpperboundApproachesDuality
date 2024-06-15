@@ -30,17 +30,15 @@ def main(d=3, print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, mo
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+2000)
     model_nn_rng = np.random.default_rng(seed+4000)
-    sim_s = 1*dt
     discount_f= np.exp(-r*dt)
     # 
     hurst2=2*hurst
     time_s=time_[:,None]
    
-    S_0 = np.random.randn(traj)*sim_s
     var_ = (time_s[1:]**hurst2 + time_[1:]**hurst2 - np.abs(time_[1:]-time_s[1:])**hurst2)/2
     B= np.linalg.cholesky(var_)
     Z = train_rng.normal(size=(steps,traj, d))
-    S = np.vstack((np.zeros((1, traj, d)), np.tensordot(B, Z, axes=(1,0)))).transpose(1, 0, 2) + S_0[:,None, None]
+    S = np.vstack((np.zeros((1, traj, d)), np.tensordot(B, Z, axes=(1,0)))).transpose(1, 0, 2)
     # Z_ub= train_rng.normal(size=(steps, traj, d)).astype(np.float32)
     dW_ub = train_rng.normal(size=(steps, traj, d)).astype(np.float32) * (dt**0.5)  # Z_ub are not  is not standard Brownian motion increments, but dW_ub are.
     S3 =  np.vstack((np.zeros((1, traj, d)), np.tensordot(B, dW_ub/(dt**0.5), axes=(1,0)))).transpose(1, 0, 2) #+ S_0[:,None, None]
@@ -222,12 +220,12 @@ def main(d=3, print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, mo
 information=[]
 if __name__=='__main__':
     label_ = 'Belom. et al LS 400-300'
-    for d,H in [ (2,0.2), (1,0.3), (1, 0.7)]:
+    for d,H in [ (1,0.45)]:
         for grid in [1]:
             print(''.join(['*' for j in range(10)]), grid ,''.join(['*' for j in range(10)]))
             for i in range(1):                
                 print(''.join(['-' for j in range(10)]), i, ''.join(['-' for j in range(10)]))
-                list_inf=main(d, True, grid=grid, K_low=200,K_up=300, traj_est=100000, traj_test_ub=1000, traj_test_lb=50000, hurst=H, seed=i+8, mode_kaggle=True, steps=9)
+                list_inf=main(d, True, grid=grid, K_low=200,K_up=75, traj_est=200000, traj_test_ub=1000, traj_test_lb=50000, hurst=H, seed=i+8, mode_kaggle=True, steps=49)
                 inf_cols = [d, H, '', '', '', '']
                 inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
                 information.append(inf_list)
