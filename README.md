@@ -24,8 +24,8 @@ Generally, the primal LSMC is implemented using the Longstaff & Schwartz approac
        - Solved using BFGS as proposed by Dickmann (2014).
 
 ## Applications
-1. Fractional Browian motion: /fractionalBM/
-2. Bermudan Max Call: /multiplestoppingmaxcall/
+1. Fractional Browian motion: /fractionalBrownianMotion/
+2. Bermudan Max Call (with multiple exercise rights): /BermudanMaxCall_multiple_exercise_rights/
 
 ## Comparison
 See /jupyter_notebooks_main_analysis/. 
