@@ -4,6 +4,7 @@ $$
 Y_0^*=  \underset{M\in \mathcal{M}}{\inf} \  \mathbb{E}_0 [  \underset{ j\in\{0,1, \hdots, \ \mathcal{N}_T\}}{\max} (Z_{t_j} - M_{t_j}) ] 
 $$
 Test $Y_0^*$
+Test 2 $\sqrt{3x-1}+(1+x)^2$
 The approaches are compared to the application of stopping a fractional Brownian motion and Bermudan max call (with multiple exercise rights, which should be used (if so) at different dates). Randomised Neural Networks (related to Extreme Learning Machines) are used as basis functions.
 Generally, the primal LSMC is implemented using the Longstaff & Schwartz approach (2001)[^1].
 
