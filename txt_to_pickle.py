@@ -31,14 +31,18 @@ file_2= 'run20240612140646.txt'# test Run fair computational effort analysis fBm
 file_2='run20240612220606.txt' # high dimensional test instance
 file_2 = 'run20240612220603.txt' # test instance fbm
 file_2='run20240613070643.txt' # final run fbm N_T =49
-with open(file_2, 'rb') as fh:
-    information2=fh.read().decode('utf-8')
-    information2_list=ast.literal_eval(information2)
-information_all=information2_list#[*information_list, *information2_list] #information2_list#
+file_2 = 'run20240614040605.txt'# Run fair computational effort fbm (final N_T=9). H=0.45
+def txt_to_pickle(file):
+    with open(file, 'rb') as fh:
+        information2=fh.read().decode('utf-8')
+        information2_list=ast.literal_eval(information2)
+    information_all=information2_list#[*information_list, *information2_list] #information2_list#
 
-pickle_name= file_2.rstrip('txt')+'pic'
+    pickle_name= file.rstrip('txt')+'pic'
 
 
-with open(pickle_name, 'wb') as fh:
-    pic.dump(information_all, fh)
+    with open(pickle_name, 'wb') as fh:
+        pic.dump(information_all, fh)
 
+if __name__=='__main__':
+    txt_to_pickle(file_2)
