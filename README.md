@@ -1,5 +1,15 @@
 # Comparative Analysis of Upper Bound Approaches for high dimensional Stopping Problems
 This directory corresponds to an analysis of various upper bound duality approaches for stopping problems, based on the dual representation by Rogers (2002) and Haugh and Kogan (2004).
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}
+  });
+</script>
+<script type="text/javascript" async
+  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
+
 $$ 
 Y_0^*=  \underset{M\in \mathcal{M}}{\inf} \  \mathbb{E}_0 [  \underset{ j\in\{0,1, \hdots, \ \mathcal{N}_T\}}{\max} (Z_{t_j} - M_{t_j}) ] 
 $$
