@@ -1,8 +1,6 @@
 # Comparative Analysis of Upper Bound Approaches for high dimensional Stopping Problems
 This directory corresponds to an analysis of various upper bound duality approaches for stopping problems, based on the dual representation by Rogers (2002) and Haugh and Kogan (2004).
-$$
-Y_0^*=  \underset{M\in \mathcal{M}}{\inf} \  \mathbb{E}_0 \left[ \ \underset{ j\in\{0,1, \hdots, \ \mathcal{N}_T\}}{\max} (Z_{t_j} - M_{t_j}) \right]
-$$
+$$ Y_0^*=  \underset{M\in \mathcal{M}}{\inf} \  \mathbb{E}_0 \left[ \ \underset{ j\in\{0,1, \hdots, \ \mathcal{N}_T\}}{\max} (Z_{t_j} - M_{t_j}) \right] $$
 The approaches are compared to the application of stopping a fractional Brownian motion and Bermudan max call (with multiple exercise rights, which should be used (if so) at different dates). Randomised Neural Networks (related to Extreme Learning Machines) are used as basis functions.
 Generally, the primal LSMC is implemented using the Longstaff & Schwartz approach (2001)[^1].
 
