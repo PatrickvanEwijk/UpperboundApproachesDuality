@@ -1,3 +1,7 @@
+"""
+File which executes Belomestny (2013) non-linear pure dual upper bound approach to a fractional brownian motion.
+"""
+
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
@@ -14,7 +18,46 @@ from tabulate import tabulate
 from datetime import datetime
 
 
-def main(d=1,print_progress=True, steps= 9, T=1, traj_est=80000, grid=100, traj_test_lb=150000,traj_est_ub=8000, traj_test_ub=10000, K_low=200, K_up=10, hurst=0.7, seed=0, mode_kaggle=False, lambda_=1, L=1, p=100):
+def main(d=1,print_progress=True, steps= 9, T=1, traj_est=80000, grid=100, traj_test_lb=150000,traj_est_ub=8000, traj_test_ub=10000, K_low=200, K_up=100, hurst=0.7, seed=0, mode_kaggle=False, lambda_=1, L=1, p=100):
+    """
+    Main function, which executes Belomestny (2013) approach.
+
+    Function also calculates a lower biased estimate based on primal LSMC with randomised neural network.
+
+    Input:
+        d: dimension of the fractional brownian motion. Stopping maximum out of d. Only d=1 is considered in report.
+        print_progress: If True: printing results at the end. If False: Only printing times during loops execution algoritm 
+        steps: N_T in report, number of possible future stopping dates.
+        T: Time of the final possible stopping date.
+        traj_est: Trajectories used for estimation of primal LSMC.
+        grid: Number of inner simulations.
+        traj_test_lb: Number of testing trajectories for primal LSMC.
+        traj_est_ub: Number of training trajectories for the Dual problem.
+        traj_test_ub: Number of testring trajectories to evaluate upper bound.
+        K_low: Number of nodes,=#basis functions -1, in randomised neural network primal LSMC.
+        K_up:  Number of nodes in dual randomised neural network, =# basis functions to construct martingale family.
+        hurst: Hurst parameter of fbm.
+        seed: Seed for randomised neural network and simulating trajectories.
+        mode_kaggle: Boolean.
+            Used to avoid loops to calculate martingale increments-> cloud has much more RAM.
+        lambda_: Lambda parameter in Belomestny (2013). Determines weight on minimising empirical variance of dual pathwise maxima.
+        L=1: NOT IMPLEMENTED, restricted to 1. Number of stopping rights.
+        p: Smoothening parameter in Belomestny (2013) and Dickmann (2014) (referred to as glättungs parameter in his code). Default set to 100.
+
+    Output:
+        lowerbound: Lower biased estimate
+        lowerbound_std: standard error of lower biased estimate 
+        upperbound: Upper biased estimate
+        upperbound_std: Standard error of upper biased estimate
+        np.mean(np.array(time_training)): Training time (list with 1 value so automatically total time)
+        np.mean(np.array(time_ub)):  Testing time (list with 1 value so automatically total time)
+        CV_lowerbound: Lower biased estimate using constructed martingale as control variate.
+        CV_lowerbound_std: Standard error of lower biased estimate using constructed martingale as control variate.
+        upperbound2: Upper bound estimate corresponding to Fuiji et al. (2011) simple improvement algorithm. Not used in report. Using at own caution.
+        upperbound_std2: standard error upper bound estimate corresponding to Fuiji et al. (2011) simple improvement algorithm. Not used in report. Using at own caution.
+    
+    """
+    
     time_training=[]
     time_testing=[]
     time_ub=[]

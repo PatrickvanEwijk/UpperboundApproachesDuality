@@ -1,3 +1,11 @@
+"""
+File which executes linear programming pure dual upper bound approaches to a fractional brownian motion.
+Can be used for approaches
+*Desai et al. (2012)
+*Belomestny et al. (2019)
+*Belomestny et al. (2023)
+"""
+
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
@@ -14,7 +22,48 @@ from tabulate import tabulate
 from datetime import datetime
 
 
-def main(d=1,print_progress=True, steps= 9, T=1, traj_est=80000, grid=100, step_inner=True, traj_test_lb=150000, traj_test_ub=10000, traj_train_ub=8000, K_low=200, K_up=10, hurst=0.7, seed=0, mode_kaggle=False, L=1, mode_desai_BBS_BHS='desai', mean_BBS=1, std_BBS=0.0, lambda_lasso=1/100):
+def main(d=1,print_progress=True, steps= 9, T=1, traj_est=80000, grid=100, traj_test_lb=150000, traj_test_ub=10000, traj_train_ub=8000, K_low=100, K_up=100, hurst=0.7, seed=0, mode_kaggle=False, L=1, mode_desai_BBS_BHS='desai', mean_BBS=1, std_BBS=0.0, lambda_lasso=1/100):
+    """
+    Main function, which executes one of the linear programming Stochastic Average Approximation (SAA) methods.
+        mode_desai_BBS_BHS='desai': Desai et al. (2012)
+        mode_desai_BBS_BHS='bhs': Belomestny et al. (2019)
+        mode_desai_BBS_BHS='bbs': Belomestny et al. (2023)
+
+    Function also calculates a lower biased estimate based on primal LSMC with randomised neural network.
+
+    Input:
+        d: dimension of the fractional brownian motion. Stopping maximum out of d. Only d=1 is considered in report.
+        print_progress: If True: printing results at the end. If False: Only printing times during loops execution algoritm 
+        steps: N_T in report, number of possible future stopping dates.
+        T: Time of the final possible stopping date.
+        traj_est: Trajectories used for estimation of primal LSMC.
+        grid: Number of inner simulations.
+        traj_test_lb: Number of testing trajectories for primal LSMC.
+        traj_test_ub: Number of testring trajectories to evaluate upper bound.
+        traj_train_ub: Number of training trajectories for the Dual problem.
+        K_low: Number of nodes,=#basis functions -1, in randomised neural network primal LSMC.
+        K_up:  Number of nodes in dual randomised neural network, =# basis functions to construct martingale family.
+        hurst: Hurst parameter of fbm.
+        seed: Seed for randomised neural network and simulating trajectories.
+        mode_kaggle: Boolean. Set True if running on cloud, as need a cloud license for gurobi. If False, using license on local machine. 
+            Also used to avoid loops to calculate martingale increments-> cloud has much more RAM.
+        L=1: NOT IMPLEMENTED, restricted to 1. Number of stopping rights.
+        mode_desai_BBS_BHS= set('desai', 'bhs', 'bbs'). See above. Determines which algorithm is used.
+        mean_BBS,std_BBS: mean and standard error hyperparameters in Belomestny et al. (2023). Only relevant if mode_desai_BBS_BHS='bbs'.
+        lambda_lasso: Penalty term weight on norm of standardised martingale coefficients in optimisation problem. Default 1/100.
+    Output:
+        lowerbound: Lower biased estimate
+        lowerbound_std: standard error of lower biased estimate 
+        upperbound: Upper biased estimate
+        upperbound_std: Standard error of upper biased estimate
+        np.mean(np.array(time_training)): Training time (list with 1 value so automatically total time)
+        np.mean(np.array(time_ub)):  Testing time (list with 1 value so automatically total time)
+        CV_lowerbound: Lower biased estimate using constructed martingale as control variate.
+        CV_lowerbound_std: Standard error of lower biased estimate using constructed martingale as control variate.
+        upperbound2: Upper bound estimate corresponding to Fuiji et al. (2011) simple improvement algorithm. Not used in report. Using at own caution.
+        upperbound_std2: standard error upper bound estimate corresponding to Fuiji et al. (2011) simple improvement algorithm. Not used in report. Using at own caution.
+    
+    """
     time_training=[]
     time_testing=[]
     time_ub=[]
@@ -27,7 +76,7 @@ def main(d=1,print_progress=True, steps= 9, T=1, traj_est=80000, grid=100, step_
     train_rng= np.random.default_rng(seed)
     test_rng =  np.random.default_rng(seed+2000)
     model_nn_rng = np.random.default_rng(seed+4000)
-    sim_s = 3.5*dt
+
     discount_f= np.exp(-r*dt)
     # generator = FBM(n=steps, hurst=hurst, length=T, method='daviesharte')
     hurst2=2*hurst

@@ -1,3 +1,7 @@
+"""
+File which executes Belomestny et al. (2009) Upper bound approach to a fractional brownian motion.
+"""
+
 import os
 import sys
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -17,7 +21,40 @@ from datetime import datetime
 
 
 
-def main(d=3, print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=10, hurst=0.7, seed=0, step_size=None):
+def main(d=1, print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=100, hurst=0.7, seed=0):
+    """
+    Main function, which executes algorithm by Belomestny et al. (2009).
+
+    Input:
+        d: dimension of the fractional brownian motion. Stopping maximum out of d. Only d=1 is considered in report.
+        print_progress: If True: printing results at the end. If False: Only printing times during loops execution algoritm 
+        steps: N_T in report, number of possible future stopping dates.
+        T: Time of the final possible stopping date.
+        traj_est: Trajectories used for estimation of primal LSMC.
+        grid: Number of inner simulations.
+        step_inner: Determines size of the loop to evaluate basis functions in inner simulations.  If True: set to  2500*100 // traj_test_ub. Otherwise, no lo loops are used.
+        traj_test_lb: Number of testing trajectories for primal LSMC.
+        traj_test_ub: Number of testring trajectories to evaluate upper bound.
+        K_low: Number of nodes,=#basis functions -1, in randomised neural network primal LSMC.
+        K_up: Number of nodes,=#basis functions -1, in randomised neural network on dual, dZ term, in LSMC.
+        hurst: Hurst parameter of fbm.
+        seed: Seed for randomised neural network and simulating trajectories.
+        mode_kaggle: Boolean indicating one could rely on infinte RAM of Kaggle (>200 GB).
+    
+    Output:
+        lowerbound: Lower biased estimate
+        lowerbound_std: standard error of lower biased estimate 
+        upperbound: Upper biased estimate
+        upperbound_std: Standard error of upper biased estimate
+        np.mean(np.array(time_training)): Training time (list with 1 value so automatically total time)
+        np.mean(np.array(time_ub)):  Testing time (list with 1 value so automatically total time)
+        CV_lowerbound: Lower biased estimate using constructed martingale as control variate.
+        CV_lowerbound_std: Standard error of lower biased estimate using constructed martingale as control variate.
+        upperbound2: Upper bound estimate corresponding to Fuiji et al. (2011) simple improvement algorithm. Not used in report. Using at own caution.
+        upperbound_std2: standard error upper bound estimate corresponding to Fuiji et al. (2011) simple improvement algorithm. Not used in report. Using at own caution.
+    
+    """
+
     time_training=[]
     time_testing=[]
     time_ub=[]
@@ -74,7 +111,7 @@ def main(d=3, print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, mo
     input_size_lb= (1)*(d)
     input_size_ub=(1)*(d)
 
-    model_= model_Belomestny_etal(model_nn_rng, seed, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, L=1, mode_kaggle=mode_kaggle)
+    model_= model_Belomestny_etal(model_nn_rng, seed, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, L=1)
     #### TRAINING ########
     stop_val = (np.max(S[:,-1,:], -1)*discount_f**steps)
     stop_val_ub= (np.max(S3[:,-1,:], -1)*discount_f**steps)
@@ -225,7 +262,7 @@ if __name__=='__main__':
             print(''.join(['*' for j in range(10)]), grid ,''.join(['*' for j in range(10)]))
             for i in range(1):                
                 print(''.join(['-' for j in range(10)]), i, ''.join(['-' for j in range(10)]))
-                list_inf=main(d, True, grid=grid, K_low=200,K_up=75, traj_est=200000, traj_test_ub=1000, traj_test_lb=50000, hurst=H, seed=i+8, mode_kaggle=True, steps=49)
+                list_inf=main(d, True, grid=grid, K_low=200,K_up=75, traj_est=200000, traj_test_ub=1000, traj_test_lb=50000, hurst=H, seed=i+8, steps=49)
                 inf_cols = [d, H, '', '', '', '']
                 inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
                 information.append(inf_list)

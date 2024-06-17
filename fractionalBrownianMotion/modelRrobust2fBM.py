@@ -17,6 +17,10 @@ options = {
 }
 
 class model_fBm():
+    """
+    General object for primal and dual problem. 
+        Captures creating randomised neural networks, estimating coeffients, construcing martingales etc.
+    """
     def __init__(self, model_seed, seed_keras,input_size_lb, K_lower, steps,d, K_upper, input_size_ub, K_noise=None, L=1, mode_kaggle=False):
         utils.set_seeds(seed_keras)
 
@@ -29,10 +33,10 @@ class model_fBm():
         initializer_b_lb=  [constant_initializer(model_seed.normal( 0, scale_, size=(K_lower,)))] 
         layers_lb=[K_lower]
         activation_f_lower = nn.leaky_relu#nn.leaky_relu #
-
-        initializer_w_ub =[keras.initializers.RandomNormal(stddev=1)]#[constant_initializer(model_seed.normal( 0, scale_, size=(input_size_ub, K_upper)))]
-        initializer_b_ub=  [constant_initializer(model_seed.normal( 0, scale_, size=(K_upper,)))]
-        initializer_w_s= [keras.initializers.RandomNormal(stddev=1)]#[constant_initializer(model_seed.normal( 0, scale_, size=(input_size_ub, K_upper_s)))]
+        if K_upper is not None:
+            initializer_w_ub =[keras.initializers.RandomNormal(stddev=1)]#[constant_initializer(model_seed.normal( 0, scale_, size=(input_size_ub, K_upper)))]
+            initializer_b_ub=  [constant_initializer(model_seed.normal( 0, scale_, size=(K_upper,)))]
+            initializer_w_s= [keras.initializers.RandomNormal(stddev=1)]#[constant_initializer(model_seed.normal( 0, scale_, size=(input_size_ub, K_upper_s)))]
         if K_noise is not None:
             initializer_b_s=  [constant_initializer(model_seed.normal( 0, scale_, size=(K_noise,)))]
         layers_ub=[K_upper]
@@ -69,22 +73,27 @@ class model_fBm():
             self.theta_coeff = np.zeros((K_lower+1, steps))
 
         ## Upperbound
-        for time in range(steps+1):#+1 needed for SAA
-            # mask_b_ub=[(np.random.rand(layer)<=connect_bias_ub) for layer in layers_ub]
-            input_ly_size = input_size_ub*(time+1)
-            layers_all_ub = [input_ly_size,*layers_ub]
-            # mask_w_ub=[(np.random.rand(layers_all_ub[i],layers_all_ub[i+1])<=connect_w_ub) for i in range(len(layers_all_ub)-1) ]
-            model_ub=keras.Sequential()
-            model_ub.add(keras.Input(shape=(input_ly_size,)))
-            for layer_number, nodes in enumerate(layers_ub):
-                model_ub.add(keras.layers.Dense(nodes, activation=activation_f_upper, kernel_initializer= initializer_w_ub[layer_number], bias_initializer= initializer_b_ub[layer_number],  name=f'layer{layer_number}'))
-                # model_ub.layers[-1].kernel.assign(multiply(model_ub.layers[-1].kernel, mask_w_ub[layer_number]))
-                # model_ub.layers[-1].bias.assign(multiply(model_ub.layers[-1].bias, mask_b_ub[layer_number]))
-            self.models_ub[time]=model_ub
-        if L>1:
-            self.beta_coeff_upper = np.zeros((K_upper, L, steps, d))
+        if K_upper is not None:
+            for time in range(steps+1):#+1 needed for SAA
+                # mask_b_ub=[(np.random.rand(layer)<=connect_bias_ub) for layer in layers_ub]
+                input_ly_size = input_size_ub*(time+1)
+                layers_all_ub = [input_ly_size,*layers_ub]
+                # mask_w_ub=[(np.random.rand(layers_all_ub[i],layers_all_ub[i+1])<=connect_w_ub) for i in range(len(layers_all_ub)-1) ]
+                model_ub=keras.Sequential()
+                model_ub.add(keras.Input(shape=(input_ly_size,)))
+                for layer_number, nodes in enumerate(layers_ub):
+                    model_ub.add(keras.layers.Dense(nodes, activation=activation_f_upper, kernel_initializer= initializer_w_ub[layer_number], bias_initializer= initializer_b_ub[layer_number],  name=f'layer{layer_number}'))
+                    # model_ub.layers[-1].kernel.assign(multiply(model_ub.layers[-1].kernel, mask_w_ub[layer_number]))
+                    # model_ub.layers[-1].bias.assign(multiply(model_ub.layers[-1].bias, mask_b_ub[layer_number]))
+                self.models_ub[time]=model_ub
+            if L>1:
+                self.beta_coeff_upper = np.zeros((K_upper, L, steps, d))
+            else:
+                self.beta_coeff_upper = np.zeros((K_upper, steps, d))
         else:
-            self.beta_coeff_upper = np.zeros((K_upper, steps, d))
+            self.models_ub=None
+            self.beta_coeff_upper=None
+
         
         ## Noise fitting
         self.K_noise=K_noise
@@ -116,7 +125,12 @@ class model_fBm():
 
 
  
-class model_HaughKaugen(model_fBm):
+class model_glasserman_general(model_fBm):
+     """ 
+     Class based on Haugh and Kaugen (2004) and Glasserman (2004).
+     Inner simulation for 1-step upperbound are computed in main code.      
+            Class used for some other approaches as well as recipe is quite general.
+     """
      def train_finallayer_continuationvalue(self, reg_m,y, time, traj, jump, ex_right=0):
         reg_mbasis_f= self.random_basis_LS(reg_m, time)
         if self.K_noise is not None:
@@ -139,6 +153,10 @@ class model_HaughKaugen(model_fBm):
    
 
 class model_Belomestny_etal(model_fBm):
+    """ 
+     Class based on Belomestny et al (2009).
+     Two seperate regressions for lower- and upperbound.
+    """
     def train_finallayer_continuationvalue(self, reg_m,y, time, traj, jump, ex_right=0):
         reg_mbasis_f= self.random_basis_LS(reg_m, time)
         if self.K_noise is not None:
@@ -167,6 +185,9 @@ class model_Belomestny_etal(model_fBm):
      
        
     def prediction_Z_model_upper(self, reg_m, traj, time, jump, ex_right=0):
+        """
+        Function to predict Z(psi)dW term 
+        """
         if self.beta_coeff_upper.ndim>3:
             beta=self.beta_coeff_upper[:, ex_right, time]
         else:
@@ -176,6 +197,9 @@ class model_Belomestny_etal(model_fBm):
       
         
     def prediction_Z_model_upper2(self, reg_m, traj, fine_grid, jump, ex_right=0):
+        """
+        Function to predict Z(psi)dW term , but in a parralel way.
+        """
         if self.beta_coeff_upper.ndim>3:
             beta=self.beta_coeff_upper[:, ex_right, :]
         else:
@@ -195,6 +219,10 @@ class model_Belomestny_etal(model_fBm):
 
 
 class model_Schoenmakers(model_fBm):
+    """ 
+     Class based on Schoenmakers et al. (2013).
+     Upperbound parameterisation and lowerbound simultaneously estimated in single regression at each time step.
+    """
     def __init__(self,model_seed, seed_keras, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, layers_ub_s=None, L=1, mode_kaggle=False):
         super().__init__(model_seed, seed_keras, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, layers_ub_s, L, mode_kaggle)
         if L>1:
@@ -227,6 +255,9 @@ class model_Schoenmakers(model_fBm):
         return np.hstack((np.ones((traj,1)), reg_mbasis_f)) @ theta
     
     def prediction_Z_model_upper(self, reg_m, traj, time, jump, ex_right=0):
+        """
+        Function to predict Z(psi)dW term.
+        """
         if self.beta_coeff_upper.ndim>2:
             beta=self.beta_coeff_upper[:, ex_right, time]
         else:
@@ -237,6 +268,9 @@ class model_Schoenmakers(model_fBm):
       
         
     def prediction_Z_model_upper2(self, reg_m, traj, fine_grid, jump, ex_right=0):
+        """
+        Function to predict Z(psi)dW term , but in a parralel way.
+        """
         if self.beta_coeff_upper.ndim>2:
             beta=self.beta_coeff_upper[:, ex_right, :]
         else:
@@ -251,7 +285,7 @@ class model_Schoenmakers(model_fBm):
 
 
 
-class model_SAA(model_HaughKaugen):
+class model_SAA(model_glasserman_general):
     """
     Class which applies to problems of 4 papers (Desai et al., 2012; Belomestny, Bender, Schoenmakers, 2024; Belomestny, Hildebrand, Schoenmakers, 2017; Belomestny 2013).
         * Desai et al. 2012: min_psi mean_i \max_t (\G_t^i-M_t^i(psi))

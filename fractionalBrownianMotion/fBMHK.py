@@ -1,3 +1,7 @@
+"""
+File which executes Glasserman (2004) Upper bound approach to a fractional brownian motion. Name HK comes from Haugh and Kaugen approach, which is a more or less similar idea but applied to supermartingales.
+"""
+
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
@@ -7,14 +11,44 @@ import utils
 
 from tensorflow import keras, constant_initializer, compat, random as random_tf
 import numpy as np
-from modelRrobust2fBM import model_HaughKaugen
+from modelRrobust2fBM import model_glasserman_general
 compat.v1.logging.set_verbosity(compat.v1.logging.ERROR)
 import pickle as pic
 from tabulate import tabulate
 from datetime import datetime
 
 
-def main(d=1,print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, step_inner=True, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=10, hurst=0.7, seed=0, mode_kaggle=False):
+def main(d=1,print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, step_inner=True, traj_test_lb=150000, traj_test_ub=10000, K_low=200, hurst=0.7, seed=0):
+    """
+    Main function, which executes algorithm by Glasserman (2004).
+
+    Input:
+        d: dimension of the fractional brownian motion. Stopping maximum out of d. Only d=1 is considered in report.
+        print_progress: If True: printing results at the end. If False: Only printing times during loops execution algoritm 
+        steps: N_T in report, number of possible future stopping dates.
+        T: Time of the final possible stopping date.
+        traj_est: Trajectories used for estimation of primal LSMC.
+        grid: Number of inner simulations.
+        step_inner: Determines size of the loop to evaluate basis functions in inner simulations.  If True: set to  2500*100 // traj_test_ub. Otherwise, no lo loops are used.
+        traj_test_lb: Number of testing trajectories for primal LSMC.
+        traj_test_ub: Number of testring trajectories to evaluate upper bound.
+        K_low: Number of nodes,=#basis functions -1, in randomised neural network primal LSMC.
+        hurst: Hurst parameter of fbm.
+        seed: Seed for randomised neural network and simulating trajectories.
+    
+    Output:
+        lowerbound: Lower biased estimate
+        lowerbound_std: standard error of lower biased estimate 
+        upperbound: Upper biased estimate
+        upperbound_std: Standard error of upper biased estimate
+        np.mean(np.array(time_training)): Training time (list with 1 value so automatically total time)
+        np.mean(np.array(time_ub)):  Testing time (list with 1 value so automatically total time)
+        CV_lowerbound: Lower biased estimate using constructed martingale as control variate.
+        CV_lowerbound_std: Standard error of lower biased estimate using constructed martingale as control variate.
+        upperbound2: Upper bound estimate corresponding to Fuiji et al. (2011) simple improvement algorithm. Not used in report. Using at own caution.
+        upperbound_std2: standard error upper bound estimate corresponding to Fuiji et al. (2011) simple improvement algorithm. Not used in report. Using at own caution.
+    
+    """
     time_training=[]
     time_testing=[]
     time_ub=[]
@@ -49,14 +83,13 @@ def main(d=1,print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, ste
 
 
     K_lower= K_low
-    K_upper = K_up
 
 
     input_size_lb= (1)*(d)
     input_size_ub=(1)*(d)
 
   
-    model_= model_HaughKaugen(model_nn_rng, seed, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, L=1, mode_kaggle=mode_kaggle)
+    model_= model_glasserman_general(model_nn_rng, seed, input_size_lb, K_lower, steps,d, None, input_size_ub, L=1)
     inner=grid
     
     M_incr=np.zeros((traj_test_ub, steps))
@@ -196,7 +229,7 @@ if __name__=='__main__':
             print(''.join(['*' for j in range(10)]), grid ,''.join(['*' for j in range(10)]))
             for i in range(1):                
                 print(''.join(['-' for j in range(10)]), i , ''.join(['-' for j in range(10)]))
-                list_inf=main(d, True, grid=grid, K_low=300,K_up=50, traj_est=100000, traj_test_ub=10000, traj_test_lb=50000, hurst=H, seed=i+8, steps=9)
+                list_inf=main(d, True, grid=grid, K_low=300,K_up=None, traj_est=100000, traj_test_ub=10000, traj_test_lb=50000, hurst=H, seed=i+8, steps=9)
                 label_='HK LS'
                 inf_cols = [d, H, '', '', '', '']
                 inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= grid, info_cols=inf_cols)
