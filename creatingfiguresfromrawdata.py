@@ -5,7 +5,7 @@ from matplotlib.legend_handler import HandlerTuple
 from matplotlib.path import Path
 import matplotlib.colors as colors
 colors_list = list(colors._colors_full_map.values())
-
+from txt_to_pickle import txt_to_pickle
 import pickle as pic
 import pandas as pd
 from utils import save_graph, smoothen_label
@@ -34,6 +34,8 @@ print('Methods removal, split by - ')
 input_seq_to_remove=input().strip()
 key_words_label_remove = [i.strip() for i in (input_seq_to_remove).split('-')]
 key_words_label_remove=[i for i in key_words_label_remove if i!='']
+
+############### TEST RUNS ##################
 file_='run20240417110433.pic' # MultipleStopping
 #file_ ='run20240416210454.pic' #fBM.
 file_='run20240418180419.pic'
@@ -48,12 +50,31 @@ file_= 'run20240610110654.pic' # Google cloud run final Final Run fair computati
 # std_=True
 
 
-file_ ='run20240615230639.pic' # final run 16-6 for fbm N_T=9
-file_ = 'run20240616130610.pic'# final run 16-6 for Bermudan Max Call N_T=9
+############### FINAL RUNS ##################
+file_ ='run20240615230639.txt' # final run 16-6 for fbm N_T=9
+file_ = 'run20240616130610.txt'# final run 16-6 for Bermudan Max Call N_T=9
 
+# with open(file_, 'rb') as file:
+#     information=pic.load(file)
+
+def read_file(file_):
+    try:
+        file_pic=file_.replace('txt', 'pic')
+        with open(file_pic, 'rb') as fh:  
+            information=pic.load(fh)
+            return information
+    except Exception:
+        txt_to_pickle(file_)
+        base_name=file_.split('.')[0]
+        file_=f'{base_name}.pic'
+        with open(file_, 'rb') as fh:
+            information=pic.load(fh)
+            return information
+
+information=read_file(file_)
 file_basename=file_.split('.')[0]
-with open(file_, 'rb') as file:
-    information=pic.load(file)
+
+
 df = pd.DataFrame.from_records(information)
 df.iloc[:,0] = (df.iloc[:,0]).str.replace('Belom. et al 1', ' Belom. et al. (2009)')
 type_fbm= df.iloc[:,2].max()>=0 and df.iloc[:,2].max()<=1
