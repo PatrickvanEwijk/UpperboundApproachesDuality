@@ -8,7 +8,7 @@ Generally, the primal LSMC is implemented using the Longstaff & Schwartz approac
 
 ## Approaches
 ### Primal-Dual Inner Simulation
-  - Glasserman (2006), somewhat related to Haugh and Kogan (2004), who apply to supermartingales: fBMHK.py, multiplestoppingHK.py.
+  - Glasserman (2004), somewhat related to Haugh and Kogan (2004), who apply to supermartingales: fBMHK.py, multiplestoppingHK.py.
   - Andersen Broadie (2004): fBMABLS.py, multiplestoppingAB_fullyLS.py.
       -  Not used in the report:
            - multiplestoppingAB_fullyTvR.py: Tsitsiklis & Van Roy (2001) LSMC.
