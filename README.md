@@ -5,7 +5,14 @@ Y_0^*=  \underset{M\in \mathcal{M}}{\inf} \  \mathbb{E}_0 [  \underset{ j\in\{0,
 $$
 Test $ Y_0^* $
 Test 2 $\sqrt{3x-1}+(1+x)^2$
-Test3 $$ Y_0^* $$
+Test3 
+$$ 
+Y_0^*
+$$
+Test4 
+$$ 
+Y_0^A
+$$
 The approaches are compared to the application of stopping a fractional Brownian motion and Bermudan max call (with multiple exercise rights, which should be used (if so) at different dates). Randomised Neural Networks (related to Extreme Learning Machines) are used as basis functions.
 Generally, the primal LSMC is implemented using the Longstaff & Schwartz approach (2001)[^1].
 
