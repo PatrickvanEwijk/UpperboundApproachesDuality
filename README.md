@@ -32,7 +32,7 @@ Generally, the primal LSMC is implemented using the Longstaff & Schwartz approac
 
 ## Comparison
 See /jupyter_notebooks_main_analysis/. 
-Two Notebooks are present based on each application. Please note that github authentication link has been depreciated.
+Two Notebooks are present based on each application. Please note that github authentication link has been removed due to security reasons.
 The result files have been stored in /resultfiles/.
 
 ## Additional analyses
