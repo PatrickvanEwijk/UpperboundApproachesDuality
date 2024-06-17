@@ -17,6 +17,10 @@ options = {
 }
 
 class model_():
+    """
+    General object for primal and dual problem. 
+        Captures creating randomised neural networks, estimating coeffients, construcing martingales etc.
+    """
     def __init__(self, model_seed, seed_keras, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, K_noise=None, L=1, mode_kaggle=False):
         utils.set_seeds(seed_keras)
 
@@ -110,10 +114,11 @@ class model_():
     
 
     
-class model_HaughKaugen(model_):
+class model_glasserman_general(model_):
      """ 
-     Class based on Haugh and Kaugen (2004).
+     Class based on Haugh and Kaugen (2004) and Glasserman (2004).
      Inner simulation for 1-step upperbound are computed in main code.      
+        Class used for some other approaches as well as recipe is quite general.
      """
      def train_finallayer_continuationvalue(self, reg_m,y, time, traj, jump, ex_right=0):
         reg_mbasis_f= self.random_basis_LS(reg_m)
@@ -200,13 +205,11 @@ class model_Belomestny_etal(model_):
         return Z_W
 
     
-     
-   
-       
+      
 
 class model_Schoenmakers(model_):
     """ 
-     Class based on Schoenmakers (2010).
+     Class based on Schoenmakers et al. (2013).
      Upperbound parameterisation and lowerbound simultaneously estimated in single regression at each time step.
     """
     def __init__(self,model_seed, seed_keras, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, layers_ub_s=None, L=1, mode_kaggle=False):
@@ -270,75 +273,9 @@ class model_Schoenmakers(model_):
         return np.einsum('stk, tk-> st', reg_mbasis_f_W , np.repeat(beta, fine_grid, axis=1).T)
        
 
-class model_SchoenmakersSZH(model_):
-    """ 
-     Class based on Schoenmakers (2010).
-     Upperbound parameterisation and lowerbound simultaneously estimated in single regression at each time step.
-    """
-    def __init__(self,model_seed, seed_keras, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, layers_ub_s=5, L=1, mode_kaggle=False,grid2=100):
-        super().__init__(model_seed, seed_keras, input_size_lb, K_lower, steps,d, K_upper, input_size_ub, layers_ub_s, L, mode_kaggle)
-        if L>1:
-            self.beta_coeff_upper = np.zeros((K_upper//self.d, L, steps*grid2))
-            self.theta_coeff= np.zeros((K_lower+1,L, steps*grid2))
-        else:
-            self.beta_coeff_upper = np.zeros((K_upper//self.d, steps*grid2))
-            self.theta_coeff= np.zeros((K_lower+1, steps*grid2))
-        
-    def train_finallayer_continuationvalue(self, reg_m,y, time, traj, jump,dt, mode=0, ex_right=0):
-        reg_mbasis_f= self.random_basis_LS(reg_m)
-       
-        if mode ==0 or self.K_noise is None: # Mode=0: no denoise terms
-            trans_basisf=self.random_basis_LS_upper(reg_m).reshape(-1, self.d, self.K_upper//self.d)
-            reg_mbasis_f_W = np.einsum('ijk,ij->ik', trans_basisf, jump)
-            reg_functions_all = np.hstack((reg_mbasis_f,reg_mbasis_f_W))
-            linear_regression_output= linear_model.LinearRegression().fit(reg_functions_all,y)
-        else:
-            trans_basisf=self.random_basis_LS_upper(reg_m).reshape(-1, self.d, self.K_upper//self.d)
-            reg_mbasis_f_W = np.einsum('ijk,ij->ik', trans_basisf, jump)
-            trans_basisf_denoise= np.hstack([ self.random_basis_LS_upper(reg_m)* (jump[:, d]**2-dt)[:, None] for d in range(jump.shape[1])])
-
-            reg_functions_all = np.hstack((reg_mbasis_f,reg_mbasis_f_W,trans_basisf_denoise))
-            linear_regression_output= linear_model.LinearRegression().fit(reg_functions_all,y)
-        theta=  np.hstack((linear_regression_output.intercept_, linear_regression_output.coef_[: self.K]))
-        if self.theta_coeff.ndim>2:
-            self.theta_coeff[:,ex_right, time]=theta
-            self.beta_coeff_upper[:,ex_right, time]=linear_regression_output.coef_[self.K: self.K_upper//self.d+ self.K]
-        else:
-            self.theta_coeff[:,time]=theta
-            self.beta_coeff_upper[:,time]=linear_regression_output.coef_[self.K: self.K_upper//self.d+ self.K]
-        return np.hstack((np.ones((traj,1)), reg_mbasis_f)) @ theta
-    
-    def prediction_Z_model_upper(self, reg_m, traj, time, jump, ex_right=0):
-        """
-        Function to predict Z(psi)dW term.
-        """
-        if self.beta_coeff_upper.ndim>2:
-            beta=self.beta_coeff_upper[:, ex_right, time]
-        else:
-            beta=self.beta_coeff_upper[:, time]
-        trans_bf= self.random_basis_LS_upper(reg_m).reshape(-1, self.d, self.K_upper//self.d)
-        reg_mbasis_f_W = np.einsum('ijk,ij->ik', trans_bf, jump)
-        return reg_mbasis_f_W@ beta
-      
-        
-    def prediction_Z_model_upper2(self, reg_m, traj, fine_grid, jump, ex_right=0):
-        """
-        Function to predict Z(psi)dW term , but in a parralel way.
-        """
-        if self.beta_coeff_upper.ndim>2:
-            beta=self.beta_coeff_upper[:, ex_right, :]
-        else:
-            beta=self.beta_coeff_upper
-        s_dim = reg_m.shape[0]
-        t_dim = reg_m.shape[1]
-        reg_m= reg_m.reshape(-1, reg_m.shape[-1], order='F')
-        
-        trans_bf= self.random_basis_LS_upper(reg_m).reshape(-1, self.d, self.K_upper//self.d)
-        reg_mbasis_f_W = np.einsum('ijk,ij->ik', trans_bf, jump.reshape(-1, self.d, order='F')).reshape(s_dim, t_dim, self.K_upper//self.d, order='F' )
-        return np.einsum('stk, tk-> st', reg_mbasis_f_W , np.repeat(beta, fine_grid, axis=1).T)
        
 
-class model_SAA(model_HaughKaugen):
+class model_SAA(model_glasserman_general):
     """
     Class which applies to problems of 4 papers (Desai et al., 2012; Belomestny, Bender, Schoenmakers, 2024; Belomestny, Hildebrand, Schoenmakers, 2017; Belomestny 2013).
         * Desai et al. 2012: min_psi mean_i \max_t (\G_t^i-M_t^i(psi))

@@ -1,3 +1,8 @@
+"""
+File which executes Andersen Broadie (2004) Upper bound approach to pricing a Bermudan Max Call option, with possibly multiple exercise rights.
+        This variant of algorithm is implemented according to LongstaffSchwartz LSMC.
+"""
+
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
@@ -7,7 +12,7 @@ import utils
 
 from tensorflow import keras, constant_initializer, compat, random as random_tf
 import numpy as np
-from modelRrobust2MS import model_HaughKaugen
+from modelRrobust2MS import model_glasserman_general
 compat.v1.logging.set_verbosity(compat.v1.logging.ERROR)
 import pickle as pic
 from tabulate import tabulate
@@ -15,6 +20,42 @@ from datetime import datetime
 
 
 def main(d=3, L=3, print_progress=True, steps=9,T=3, delta_dividend= 0.1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_noise=None, S_0=110, strike=100, seed=0, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
+    """
+    Main function, which executes algorithm by Andersen Broadie (2004). 
+        Slightly adjusted, as upper biased estimator is estimated directly rather than gap between lower- and upper-biased estimator.
+
+    Input:
+        d: dimension of the fractional brownian motion. Stopping maximum out of d. Only d=1 is considered in report.
+        L: Number of exercise rights of the Bermudan Max Call option.
+        print_progress: If True: printing results at the end. If False: Only printing times during loops execution algoritm 
+        steps: N_T in report, number of possible future exercise dates.
+        T: Time of the final possible exercise date.
+        delta_dividend: The dividend rate on each stock in the underlying. 
+            Interest rate r is fixed to 0.05; volatility is fixed to 0.2.
+        mode_kaggle: Boolean. If ran on cloud, code could basically be ran with much more RAM. (Google cloud: machine 64 GB, Kaggle: TPU machine>200 GB).
+        traj_est: Trajectories used for estimation of primal LSMC.
+        grid: Number of inner simulations.
+        traj_test_lb: Number of testing trajectories for primal LSMC.
+        traj_test_ub: Number of testring trajectories to evaluate upper bound.
+        K_low: Number of nodes,=#basis functions -1, in randomised neural network primal LSMC.
+        K_noise: Number of nodes on noise terms in regression. Default (and in whole report) set to None->No noise terms in primal LSMC.
+        S_0: Time-0 stock price of all stocks in the underlying.
+        strike: Strike price of the Bermudan Max Call option.
+        seed: Seed for randomised neural network and simulating trajectories.
+        payoff_: In principal the code works for all payoff functions (so not just a max call, could in principal implement basket-option or min-put etc.).
+          Nevertheless, default set to max call and kept to max call: payoff_= lambda x, strike: utils.payoff_maxcal(x, strike))
+    
+    Output:
+        lowerbound: Lower biased estimate
+        lowerbound_std: standard error of lower biased estimate 
+        upperbound: Upper biased estimate
+        upperbound_std: Standard error of upper biased estimate
+        np.mean(np.array(time_training)): Training time (list with 1 value so automatically total time)
+        np.mean(np.array(time_ub)):  Testing time (list with 1 value so automatically total time)
+        CV_lowerbound: Lower biased estimate using constructed martingale as control variate.
+        CV_lowerbound_std: Standard error of lower biased estimate using constructed martingale as control variate.
+    """
+
     time_training=[]
     time_testing=[]
     time_ub=[]
@@ -45,7 +86,7 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3, delta_dividend= 0.1, traj_e
     input_size_lb= (1)*(d+1)
     input_size_ub=(1)*(d+1)
 
-    model_ = model_HaughKaugen(model_nn_rng, seed, input_size_lb, K_lower, steps, d, 0, input_size_ub, L=L, mode_kaggle=mode_kaggle, K_noise=K_noise)
+    model_ = model_glasserman_general(model_nn_rng, seed, input_size_lb, K_lower, steps, d, 0, input_size_ub, L=L, mode_kaggle=mode_kaggle, K_noise=K_noise)
 
     inner=grid
     M_incr=np.zeros((traj_test_ub, L, steps))

@@ -1,3 +1,7 @@
+"""
+File which executes adjusted Schoenmakers et al. (2013) upper bound approach to pricing a Bermudan Max Call option, with possibly multiple exercise rights.
+"""
+
 import os
 import sys
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -14,7 +18,43 @@ from tabulate import tabulate
 from datetime import datetime
 
 
-def main(d=3, L=3, print_progress=True, steps=9,T=3,delta_dividend=0.1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=10, S_0=110, strike=100, seed=0, step_size=None, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
+def main(d=3, L=3, print_progress=True, steps=9,T=3,delta_dividend=0.1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=50, S_0=110, strike=100, seed=0, step_size=None, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
+    """
+    Main function, which executes adjusted Schoenmakers et al. (2013) approach. Not implemented in report. Martingale is not subtracted during LSMC.
+
+
+    Input:
+        d: dimension of the fractional brownian motion. Stopping maximum out of d. Only d=1 is considered in report.
+        L: Number of exercise rights of the Bermudan Max Call option.
+        print_progress: If True: printing results at the end. If False: Only printing times during loops execution algoritm 
+        steps: N_T in report, number of possible future exercise dates.
+        T: Time of the final possible exercise date.
+        delta_dividend: The dividend rate on each stock in the underlying. 
+            Interest rate r is fixed to 0.05; volatility is fixed to 0.2.
+        mode_kaggle: Boolean. If ran on cloud, code could basically be ran with much more RAM. (Google cloud: machine 64 GB, Kaggle: TPU machine>200 GB).
+            step_size: Used to create loops if run on cloud (only necessary for very fine grid).
+        traj_est: Trajectories used for estimation of primal LSMC.
+        grid: Fine grid to create testing martingale trajectories.
+        traj_test_lb: Number of testing trajectories for primal LSMC.
+        traj_test_ub: Number of testring trajectories to evaluate upper bound.
+        K_low: Number of nodes,=#basis functions -1, in randomised neural network primal LSMC.
+        K_up:  Number of nodes,=#basis functions -1, in randomised neural network dual, used for dW terms LSMC.
+        S_0: Time-0 stock price of all stocks in the underlying.
+        strike: Strike price of the Bermudan Max Call option.
+        seed: Seed for randomised neural network and simulating trajectories.
+        payoff_: In principal the code works for all payoff functions (so not just a max call, could in principal implement basket-option or min-put etc.).
+          Nevertheless, default set to max call and kept to max call: payoff_= lambda x, strike: utils.payoff_maxcal(x, strike))
+    
+    Output:
+        lowerbound: Lower biased estimate
+        lowerbound_std: standard error of lower biased estimate 
+        upperbound: Upper biased estimate
+        upperbound_std: Standard error of upper biased estimate
+        np.mean(np.array(time_training)): Training time (list with 1 value so automatically total time)
+        np.mean(np.array(time_ub)):  Testing time (list with 1 value so automatically total time)
+        CV_lowerbound: Lower biased estimate using constructed martingale as control variate.
+        CV_lowerbound_std: Standard error of lower biased estimate using constructed martingale as control variate.
+    """
     time_training=[]
     time_testing=[]
     time_ub=[]

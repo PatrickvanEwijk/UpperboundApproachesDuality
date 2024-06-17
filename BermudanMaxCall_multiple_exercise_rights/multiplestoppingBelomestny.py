@@ -1,3 +1,7 @@
+"""
+File which executes Belomestny et al. (2009) Upper bound approach to pricing a Bermudan Max Call option, with possibly multiple exercise rights.
+"""
+
 import os
 import sys
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -18,6 +22,43 @@ from datetime import datetime
 
 
 def main(d=3, L=3, print_progress=True, steps=9,T=3,delta_dividend=0.1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_up=100, K_noise=None, S_0=110, strike=100, seed=0, step_size=None, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
+    """
+    Main function, which executes algorithm by Belomestny et al. (2009). 
+
+    Input:
+        d: dimension of the fractional brownian motion. Stopping maximum out of d. Only d=1 is considered in report.
+        L: Number of exercise rights of the Bermudan Max Call option.
+        print_progress: If True: printing results at the end. If False: Only printing times during loops execution algoritm 
+        steps: N_T in report, number of possible future exercise dates.
+        T: Time of the final possible exercise date.
+        delta_dividend: The dividend rate on each stock in the underlying. 
+            Interest rate r is fixed to 0.05; volatility is fixed to 0.2.
+        mode_kaggle: Boolean. If ran on cloud, code could basically be ran with much more RAM. (Google cloud: machine 64 GB, Kaggle: TPU machine>200 GB).
+        traj_est: Trajectories used for estimation of primal LSMC.
+        grid: Number of inner simulations.
+        traj_test_lb: Number of testing trajectories for primal LSMC.
+        traj_test_ub: Number of testring trajectories to evaluate upper bound.
+        K_low: Number of nodes,=#basis functions -1, in randomised neural network primal LSMC.
+        K_up:  Number of nodes,=#basis functions -1, in randomised neural network dual, used for dW terms LSMC.
+        K_noise: Number of nodes on noise terms in regression. Default (and in whole report) set to None->No noise terms in primal LSMC.
+        S_0: Time-0 stock price of all stocks in the underlying.
+        strike: Strike price of the Bermudan Max Call option.
+        seed: Seed for randomised neural network and simulating trajectories.
+        payoff_: In principal the code works for all payoff functions (so not just a max call, could in principal implement basket-option or min-put etc.).
+          Nevertheless, default set to max call and kept to max call: payoff_= lambda x, strike: utils.payoff_maxcal(x, strike))
+    
+    Output:
+        lowerbound: Lower biased estimate
+        lowerbound_std: standard error of lower biased estimate 
+        upperbound: Upper biased estimate
+        upperbound_std: Standard error of upper biased estimate
+        np.mean(np.array(time_training)): Training time (list with 1 value so automatically total time)
+        np.mean(np.array(time_ub)):  Testing time (list with 1 value so automatically total time)
+        CV_lowerbound: Lower biased estimate using constructed martingale as control variate.
+        CV_lowerbound_std: Standard error of lower biased estimate using constructed martingale as control variate.
+    """
+
+
     time_training=[]
     time_testing=[]
     utils.set_seeds(seed)
@@ -267,7 +308,7 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3,delta_dividend=0.1, traj_est
 
 
 traj_test_ub= 10000 
-traj_est_primal_dual = 100000
+traj_est_primal_dual = 300000
 traj_est_MM = 6000
 traj_est_MM_belomestny2013=15000
 K_lower=400
@@ -280,7 +321,7 @@ steps=9
 basis_f_K_U_MM=150
 basis_f_K_U_MM_belomestny2013=250
 K_L_basic= 200
-K_U_belomestny2009=300
+K_U_belomestny2009=190
 K_U_SZH2013=150
 K_L_AndersenBroadie2004=300
 K_L_Glasserman2004=350
@@ -289,7 +330,7 @@ grid_Glasserman2004=600
 inner_sim_SZH=300
 
 if __name__=='__main__':
-    for d,s0,n_stopping_rights in [(4,100, 2)]:#[(2,90,9), (2,90, 8), (2,90, 7), (2, 90, 6), (2, 90, 5), (2,90,4), (2,90,3), (2,90,2), (2, 90, 1)]:
+    for d,s0,n_stopping_rights in [(5,90, 3)]:#[(2,90,9), (2,90, 8), (2,90, 7), (2, 90, 6), (2, 90, 5), (2,90,4), (2,90,3), (2,90,2), (2, 90, 1)]:
         for inner_sim in [100]:
             print(''.join(np.repeat('*', 10)), inner_sim ,''.join(np.repeat('*', 10)))
             for i in range(1):                
@@ -331,7 +372,7 @@ if __name__=='__main__':
 
                 label_=f'Belom. et al. (2009) KU100-{steps}'
                 print(''.join(np.repeat('-', 10)),label_, inner_sim, d, s0, n_stopping_rights, ''.join(np.repeat('-', 10)))
-                list_inf=main(d, n_stopping_rights, True, grid=inner_sim, K_low=K_L_basic,K_up=K_U_belomestny2009, K_noise=50, traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8) 
+                list_inf=main(d, n_stopping_rights, True, delta_dividend=0.2, grid=inner_sim, K_low=K_L_basic,K_up=K_U_belomestny2009, K_noise=10, traj_est=traj_est_primal_dual, traj_test_ub=traj_test_ub, traj_test_lb=traj_lb_testing, S_0=s0,  seed=i+8) 
                 inf_list=utils.process_function_output(*list_inf, label_ = label_, grid= inner_sim, info_cols=inf_cols)
                 information.append(inf_list)   
 

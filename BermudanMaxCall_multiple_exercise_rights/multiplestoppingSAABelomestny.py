@@ -1,3 +1,7 @@
+"""
+File which executes the non-linear pure dual upper bound approach by Belomestny (2013) to pricing a Bermudan Max Call option, with possibly multiple exercise rights.
+"""
+
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
@@ -17,7 +21,50 @@ import gurobipy as gb
 time_training=[]
 time_testing=[]
 time_ub=[]
-def main(d=3, L=3, print_progress=True, steps=9,T=3,delta_dividend=0.1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, traj_est_ub=20000, K_low=200, K_up=200, K_noise=None, S_0=110, strike=100, seed=0, step_size=None, lambda_=1, p=100, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
+def main(d=3, L=3, print_progress=True, steps=9,T=3,delta_dividend=0.1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, traj_est_ub=20000, K_low=200, K_up=200, K_noise=None, S_0=110, strike=100, seed=0, lambda_=1, p=100, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
+    """
+    Main function, which executes the Belomestny (2013) approach.
+
+
+    Function also calculates a lower biased estimate based on primal LSMC with randomised neural network.
+
+    Input:
+        d: dimension of the fractional brownian motion. Stopping maximum out of d. Only d=1 is considered in report.
+        L: Number of exercise rights of the Bermudan Max Call option.
+        print_progress: If True: printing results at the end. If False: Only printing times during loops execution algoritm.
+        steps: N_T in report, number of possible future stopping dates.
+        T: Time of the final possible stopping date.
+        delta_dividend: The dividend rate on each stock in the underlying. 
+            Interest rate r is fixed to 0.05; volatility is fixed to 0.2.
+        traj_est: Trajectories used for estimation of primal LSMC.
+        grid: Number of inner simulations.
+        mode_kaggle: Boolean. Set True if running on cloud, as need a cloud license for gurobi. If False, using license on local machine. 
+            Also used to avoid loops to calculate martingale increments-> cloud has much more RAM.
+        traj_test_lb: Number of testing trajectories for primal LSMC.
+        traj_est_ub: Number of training trajectories for the Dual problem.
+        traj_test_ub: Number of testring trajectories to evaluate upper bound.
+
+        K_low: Number of nodes,=#basis functions -1, in randomised neural network primal LSMC.
+        K_up:  Number of nodes in dual randomised neural network, =# basis functions to construct martingale family.
+        S_0: Time-0 stock price of all stocks in the underlying.
+        strike: Strike price of the Bermudan Max Call option.
+        seed: Seed for randomised neural network and simulating trajectories.
+        lambda_: Lambda parameter in Belomestny (2013). Determines weight on minimising empirical variance of dual pathwise maxima.
+        p: Smoothening parameter in Belomestny (2013) and Dickmann (2014) (referred to as glättungs parameter in his code). Default set to 100.
+        payoff_: In principal the code works for all payoff functions (so not just a max call, could in principal implement basket-option or min-put etc.).
+            Nevertheless, default set to max call and kept to max call: payoff_= lambda x, strike: utils.payoff_maxcal(x, strike))
+    Output:
+        lowerbound: Lower biased estimate
+        lowerbound_std: standard error of lower biased estimate 
+        upperbound: Upper biased estimate
+        upperbound_std: Standard error of upper biased estimate
+        np.mean(np.array(time_training)): Training time (list with 1 value so automatically total time)
+        np.mean(np.array(time_ub)):  Testing time (list with 1 value so automatically total time)
+        CV_lowerbound: Lower biased estimate using constructed martingale as control variate.
+        CV_lowerbound_std: Standard error of lower biased estimate using constructed martingale as control variate.
+    
+    """
+
     time_training=[]
     time_testing=[]
     time_ub=[]
