@@ -1,24 +1,6 @@
 # Comparative Analysis of Upper Bound Approaches for high dimensional Stopping Problems
 This directory corresponds to an analysis of various upper bound duality approaches for stopping problems, based on the dual representation by Rogers (2002) and Haugh and Kogan (2004).
-
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}
-  });
-</script>
-<script type="text/javascript" async
-  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML">
-</script>
-
-$$ 
-Y_0^*=  \underset{M\in \mathcal{M}}{\inf} \  \mathbb{E}_0 [  \underset{ j\in\{0,1, \hdots, \ \mathcal{N}_T\}}{\max} (Z_{t_j} - M_{t_j}) ] 
-$$
-Test $ Y_0^* $</code>
-Test 2 $\sqrt{3x-1}+(1+x)^2$
-Test 3
-<div align="center">
-  <code>$$Y_0^*$$</code>
-</div>
+![equation](http://www.sciweavers.org/tex2img.php?eq=Y_0%5E%2A%3D%20%20%5Cunderset%7BM%5Cin%20%5Cmathcal%7BM%7D%7D%7B%5Cinf%7D%20%5C%20%20%5Cmathbb%7BE%7D_0%20%5Cleft%5B%20%20%5Cunderset%7B%20j%5Cin%5C%7B0%2C1%2C%20%5Chdots%2C%20%5C%20%5Cmathcal%7BN%7D_T%5C%7D%7D%7B%5Cmax%7D%20%28Z_%7Bt_j%7D%20-%20M_%7Bt_j%7D%29%20%5Cright%5D%20&bc=White&fc=Black&im=jpg&fs=12&ff=arev&edit=0)
 The approaches are compared to the application of stopping a fractional Brownian motion and Bermudan max call (with multiple exercise rights, which should be used (if so) at different dates). Randomised Neural Networks (related to Extreme Learning Machines) are used as basis functions.
 Generally, the primal LSMC is implemented using the Longstaff & Schwartz approach (2001)[^1].
 
