@@ -13,7 +13,7 @@ Generally, the primal LSMC is implemented using the Longstaff & Schwartz approac
       -  Not used in the report:
            - multiplestoppingAB_fullyTvR.py: Tsitsiklis & Van Roy (2001) LSMC.
            - multiplestoppingAB_mainGAP: originally proposed by authors; involves the difference between lower and upper biased estimator which is estimated rather than upper biased estimator.
-           - multiplestoppingAB_TvRpartLS.py: interpolation Tsitsiklis & Van Roy (2001) and Longstaff Schwartz LSMC across different exercise rights->continuation value Tsitsiklis & Van Roy (2001), stopping value current right-> Longstaff Schwartz.  
+           - multiplestoppingAB_TvRpartLS.py: interpolation Tsitsiklis & Van Roy (2001) and Longstaff Schwartz LSMC across different exercise rights->continuation value of previous right determined by Tsitsiklis & Van Roy (2001), stopping value current right determined by Longstaff Schwartz.  
 ### Primal-Dual Nonnested
   - Belomestny et al. (2009): fBMBelomestny.py, multiplestoppingBelomestny.py.
   - Schoenmakers et al. (2013): fBMSchoenmakersSZH.py, multiplestoppingSchoenmakersSZH.py.
