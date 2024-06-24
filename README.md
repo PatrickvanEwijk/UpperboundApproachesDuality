@@ -6,6 +6,9 @@ This directory corresponds to a comparative analysis of various upper bound dual
 The approaches are compared to the application of stopping a fractional Brownian motion and Bermudan max call (with multiple exercise rights, which should be used (if so) at different dates). Randomised Neural Networks (related to Extreme Learning Machines) are used as basis functions.
 Generally, the primal LSMC is implemented using the Longstaff & Schwartz approach (2001)[^1].
 
+To reproduce the results, please place all files from /jupyter_notebooks_main_analysis/, /fractionalBrownianMotion/, /BermudanMaxCall_multiple_exercise_rights/ in a single folder and run the Jupyter Notebooks.
+Information on the hyperparameters in each approach can be found in the doc string of the main function in each file.
+
 ## Approaches
 ### Primal-Dual Inner Simulation
   - Glasserman (2004), somewhat related to Haugh and Kogan (2004), who apply to supermartingales: fBMHK.py, multiplestoppingHK.py.
