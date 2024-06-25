@@ -59,14 +59,32 @@ file_='run20240614070647.txt' # test Run fair computational effort fbm (N_T=49).
 file_='run20240614100613.txt'# final run fbm N_T =49 including H=0.45
 file_='run20240615180639.txt'# test run final run fbm N_T =49
 file_= 'run20240616170654.txt'# final run 16-6 for Bermudan Max Call N_T=49
-
+file_= 'run20240617160643.txt'
+file_='run20240618120619.txt'
+file_='run20240618150618.txt'
+file_='run20240619030632.txt'
+file_='run20240619000608.txt' # fBM higher inner sim AB (too high)
+file_='run20240619110659.txt' # fBM higher inner sim AB
+file_='run20240619120658.txt'# fBM higher inner sim AB
 
 ############### FINAL RUNS ##################
-file_ ='run20240615230639.txt' # final run 16-6 for fbm N_T=9
-file_ ='run20240616020644.txt'# final run 16-6 for fbm N_T=49
-file_ = 'run20240616130610.txt'# final run 16-6 for Bermudan Max Call N_T=9
-file_ ='run20240616180620.txt'# final run 16-6 for Bermudan Max Call N_T=9, d=10
-file_='run20240617080655.txt'## final run 16-6 for Bermudan Max Call N_T=49.
+# file_ ='run20240615230639.txt' # final run 16-6 for fbm N_T=9
+# file_ ='run20240616020644.txt'# final run 16-6 for fbm N_T=49
+# file_ = 'run20240616130610.txt'# final run 16-6 for Bermudan Max Call N_T=9
+# file_ ='run20240616180620.txt'# final run 16-6 for Bermudan Max Call N_T=9, d=10
+# file_='run20240617080655.txt'## final run 16-6 for Bermudan Max Call N_T=49.
+
+file_ = 'run20240625110611.txt'
+# file_ ='run20240616020644.txt'# final run 16-6 for fbm N_T=49.=final run 22-6
+# file_='run20240619120658.txt'# final run fBM (higher inner sim AB), N_T=9. 22-6
+# file_='run20240622210621.txt' #final run fBM (higher inner sim AB), N_T=9, hurst close to 0.5; 22-6
+
+# file_='run20240622120626.txt'# final run Bermudan Max Call N_T=9. 22-6. Div=.15, r=0.0
+# file_ ='run20240622200627.txt'# final run Bermudan Max Call N_T=9, d=10. Div=.15, r=0.0
+# file_='run20240623160644.txt'# final run Bermudan Max Call N_T=49. 22-6. Div=.15, r=0.0
+
+
+
 def read_file(file_):
     try:
         file_pic=file_.replace('txt', 'pic')
