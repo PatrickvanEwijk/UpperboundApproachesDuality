@@ -1,4 +1,4 @@
-# Comparative Analysis of Upper Bound Approaches for high dimensional Stopping Problems
+# Comparative Analysis of Dual Algorithms for high-dimensional Stopping Problems
 This directory corresponds to a comparative analysis of various upper bound duality approaches for stopping problems, based on the dual representation by Rogers (2002) and Haugh and Kogan (2004),
 
 ![equation](http://www.sciweavers.org/tex2img.php?eq=Y_0%5E%2A%3D%20%20%5Cunderset%7BM%5Cin%20%5Cmathcal%7BM%7D%7D%7B%5Cinf%7D%20%5C%20%20%5Cmathbb%7BE%7D_0%20%5Cleft%5B%20%20%5Cunderset%7B%20j%5Cin%5C%7B0%2C1%2C%20%5Chdots%2C%20%5C%20%5Cmathcal%7BN%7D_T%5C%7D%7D%7B%5Cmax%7D%20%28Z_%7Bt_j%7D%20-%20M_%7Bt_j%7D%29%20%5Cright%5D.%20%5Chspace%7B4cm%7D%20%5Ctext%7BDual%20%20%20%281.2%29%7D&bc=White&fc=Black&im=jpg&fs=12&ff=arev&edit=0)
