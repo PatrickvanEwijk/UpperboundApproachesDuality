@@ -6,41 +6,47 @@ This directory corresponds to a comparative analysis of various upper bound dual
 The approaches are compared to the application of stopping a fractional Brownian motion and Bermudan max call (with multiple exercise rights, which should be used (if so) at different dates). Randomised Neural Networks (related to Extreme Learning Machines) are used as basis functions.
 Generally, the primal LSMC is implemented using the Longstaff & Schwartz approach (2001)[^1].
 
-To reproduce the results, please place all files from /jupyter_notebooks_main_analysis/, /fractionalBrownianMotion/, /BermudanMaxCall_multiple_exercise_rights/ in a single folder and run the Jupyter Notebooks.
+To reproduce the fine-tuning results, please place all files from /jupyter_notebooks_analysis_finetuning/, /fractionalBrownianMotion/, /BermudanMaxCall_multiple_exercise_rights/ in a single folder and run the Jupyter Notebooks.
+The 'finetuning-finalrun' notebooks only show the final calibrations, but shown based on the 'fine-tuning' testing trajectories.
+
+The final files are captured in the folder '/Final_comparison_new_testing_traj/'. Here, the python scripts have been adjusted to choose an independent set of testing trajectories relative to the 'fine-tuning' testing trajectories[^2].
+The notebooks in this folder can simply be run to reproduce the final results. 
+
 Information on the hyperparameters in each approach can be found in the doc string of the main function in each file.
 
 ## Approaches
 ### Primal-Dual Inner Simulation
-  - Glasserman (2004), somewhat related to Haugh and Kogan (2004), who apply to supermartingales: fBMHK.py, multiplestoppingHK.py.
-  - Andersen Broadie (2004): fBMABLS.py, multiplestoppingAB_fullyLS.py.
+  - Glasserman (2004), somewhat related to Haugh and Kogan (2004), who apply to supermartingales: fBMHK.py, BermudanMaxCall_HK.py.
+  - Andersen Broadie (2004): fBMABLS.py, BermudanMaxCallAB_fullyLS.py.
       -  Not used in the report:
-           - multiplestoppingAB_fullyTvR.py: Tsitsiklis & Van Roy (2001) LSMC.
-           - multiplestoppingAB_mainGAP: originally proposed by authors; involves the difference between lower and upper biased estimator which is estimated rather than upper biased estimator.
-           - multiplestoppingAB_TvRpartLS.py: interpolation Tsitsiklis & Van Roy (2001) and Longstaff Schwartz LSMC across different exercise rights->continuation value of previous right determined by Tsitsiklis & Van Roy (2001), stopping value current right determined by Longstaff Schwartz.  
+           - BermudanMaxCallAB_fullyTvR.py: Tsitsiklis & Van Roy (2001) LSMC.
+           - BermudanMaxCallAB_mainGAP: originally proposed by authors; involves the difference between lower and upper biased estimator which is estimated rather than upper biased estimator.
+           - BermudanMaxCallAB_TvRpartLS.py: interpolation Tsitsiklis & Van Roy (2001) and Longstaff Schwartz LSMC across different exercise rights->continuation value of previous right determined by Tsitsiklis & Van Roy (2001), stopping value current right determined by Longstaff Schwartz.  
 ### Primal-Dual Nonnested
-  - Belomestny et al. (2009): fBMBelomestny.py, multiplestoppingBelomestny.py.
-  - Schoenmakers et al. (2013): fBMSchoenmakersSZH.py, multiplestoppingSchoenmakersSZH.py.
-       - Not used in report: (fBMSchoenmakers.py, multiplestoppingSchoenmakers.py)-> involves not substracting martingale during LSMC. 
+  - Belomestny et al. (2009): fBMBelomestny.py, BermudanMaxCal_lBelomestny.py.
+  - Schoenmakers et al. (2013): fBMSchoenmakersSZH.py, BermudanMaxCall_SchoenmakersSZH.py.
+       - Not used in report: (fBMSchoenmakers.py, BermudanMaxCall_Schoenmakers.py)-> involves not substracting martingale during LSMC. 
 ### Pure-Dual Linear Programming Formulations
-   - Desai et al. (2012): fBMSAA.py, multiplestoppingSAA.py; both with mode_desai_BBS_BHS='desai'.
-   - Belomestny et al. (2019): fBMSAA.py, multiplestoppingSAA.py; both with mode_desai_BBS_BHS='bhs'.
-   - Belomestny et al. (2023): fBMSAA.py, multiplestoppingSAA.py; both with mode_desai_BBS_BHS='bbs'.
+   - Desai et al. (2012): fBMSAA.py, BermudanMaxCall_SAA.py; both with mode_desai_BBS_BHS='desai'.
+   - Belomestny et al. (2019): fBMSAA.py, BermudanMaxCall_SAA.py; both with mode_desai_BBS_BHS='bhs'.
+   - Belomestny et al. (2023): fBMSAA.py, BermudanMaxCall_SAA.py; both with mode_desai_BBS_BHS='bbs'.
 ### Pure-Dual Non-Linear Formulations
-   - Belomestny (2013): fBMSAABelomestny.py, multiplestoppingSAABelomestny.py.
+   - Belomestny (2013): fBMSAABelomestny.py, BermudanMaxCall_SAABelomestny.py.
        - Solved using BFGS as proposed by Dickmann (2014).
 
 ## Applications
-1. Fractional Browian motion: /fractionalBrownianMotion/
-2. Bermudan Max Call (with multiple exercise rights): /BermudanMaxCall_multiple_exercise_rights/
+1. Fractional Brownian motion: /fractionalBrownianMotion/ for fine-tuning runs.
+2. Bermudan Max Call (with multiple exercise rights): /BermudanMaxCall_multiple_exercise_rights/  for fine-tuning runs.
 
 ## Comparison
-See /jupyter_notebooks_main_analysis/. 
-Two Notebooks are present based on each application. Please note that github authentication link has been removed due to security reasons.
+See /Final_comparison_new_testing_traj/. 
+A Notebook is present based on each application. Please note that github authentication link has been removed due to security reasons.
 The result files have been stored in /resultfiles/.
 
 ## Additional analyses
-1. Timing the pure dual (martingale minimisation approaches) and find a relationship between the empirical computation time in the relevant input parameters of the algorithms. See /timingMartingaleMinimisation/
-2. Tuning the parameters in the choose of distribution of A in Belomestny et al. (2023). See /tuningAbelomestny2023/
+1. Fine-tuning analyses in /jupyter_notebooks_analysis_finetuning/.
+2. Timing the pure dual (martingale minimisation approaches) and find a relationship between the empirical computation time in the relevant input parameters of the algorithms. See /timingMartingaleMinimisation/
+3. Tuning the parameters in the choose of distribution of A in Belomestny et al. (2023). See /tuningAbelomestny2023/
 
 ## Other remarks
 1. Jupyter Notebooks have been run in Google Cloud on a virtual machine (c3d-highmem-8, corresponding to a 4-core AMD EPYC (GENOA) 9B14 2.60 GHz CPU).
@@ -52,10 +58,12 @@ In an earlier stage, this approach has shortly been considered. However, I did n
  2. pickletotable.py: For a specified pickle file (or txt file, which uses txt_to_pickle.py to convert to pickle), print the table corresponding to a raw data file.
  3. creatinfiguresfromrawdata.py: File to create figures corresponding to raw data files, and saving these in .pdf format. 
  4. utils.py: General file, containing column names for printed tables, function for setting seeds, function for saving figures in a certain resolution, smoothening the somewhat ill defined names of the approaches in the raw data files.
- 5. modelRrobust2MS.py & modelRrobust2fBM.py: Object Oriented Programming classes for the approaches. Respectively for the Bermudan Max Call with multiple exercise rights and stopping a fractional Brownian motion.
+ 5. BermudanMaxCall_model.py & modelRrobust2fBM.py: Object Oriented Programming classes for the approaches. Respectively for the Bermudan Max Call with varying number of exercise rights and stopping a fractional Brownian motion.
 
 
 [^1]: However, it is slightly adjusted as all trajectories are used rather than the ones in-the-money.
+[^2]: I did not account for this in some files (especially SAA and SAABelomestny) while originally writing the code. With hindsight, I would have restructured some Python files. 
+The testing trajectories are now sampled twice in these algorithms for the final runs to reproduce results, nevertheless with negligible impact on the computation time.
 
 ## Citation
  - Andersen, L., & Broadie, M. (2004). Primal-dual simulation algorithm for pricing multidimensional American options. Management Science, 50 (9), 1222–1234.
