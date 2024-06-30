@@ -14,7 +14,7 @@ The notebooks in this folder can simply be run to reproduce the final results.
 
 Information on the hyperparameters in each approach can be found in the doc string of the main function in each file.
 
-## Approaches
+## Considered Dual Algorithms
 ### Primal-Dual Inner Simulation
   - Glasserman (2004), somewhat related to Haugh and Kogan (2004), who apply to supermartingales: fBMHK.py, BermudanMaxCall_HK.py.
   - Andersen Broadie (2004): fBMABLS.py, BermudanMaxCallAB_fullyLS.py.
