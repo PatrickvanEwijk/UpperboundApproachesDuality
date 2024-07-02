@@ -146,6 +146,8 @@ def main(d=1,print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, ste
             con_val_no_ex=[]
             ## inner loop grid for calculations
             num_instances_calc= np.sum(mask_not_exercised)
+            if num_instances_calc==0:
+                break
             mask_not_exercised_loc = np.where(mask_not_exercised)[0]
             size_loop= int(traj_test_ub*step_inner)
             inner_ = np.arange(0, num_instances_calc+size_loop+0.001, size_loop, dtype=int)
