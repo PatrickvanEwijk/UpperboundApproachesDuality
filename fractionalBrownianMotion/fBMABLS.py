@@ -148,7 +148,7 @@ def main(d=1,print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, ste
             num_instances_calc= np.sum(mask_not_exercised)
             mask_not_exercised_loc = np.where(mask_not_exercised)[0]
             size_loop= int(traj_test_ub*step_inner)
-            inner_ = np.arange(0, num_instances_calc+size_loop, size_loop, dtype=int)
+            inner_ = np.arange(0, num_instances_calc+size_loop+0.001, size_loop, dtype=int)
             inner_[inner_>=num_instances_calc] = num_instances_calc
             inner_=list(np.unique(inner_))
             inner_ = [inner_[i: i+2] for i in range(len(inner_)-1)]
