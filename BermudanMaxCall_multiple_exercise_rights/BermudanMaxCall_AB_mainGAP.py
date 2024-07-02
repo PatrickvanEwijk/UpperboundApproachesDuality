@@ -91,7 +91,7 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3, r=0.05, delta_dividend=0.1,
         step_size=25000000
     else:
         step_size = 500000
-    inner_ = np.arange(0, inner*traj_test_ub+step_size, step_size, dtype=int)
+    inner_ = np.arange(0, inner*traj_test_ub+step_size+0.001, step_size, dtype=int)
     inner_[inner_>=inner*traj_test_ub] = inner*traj_test_ub
     inner_=np.unique(inner_)
     inner_ = [inner_[i: i+2] for i in range(len(inner_)-1)]
