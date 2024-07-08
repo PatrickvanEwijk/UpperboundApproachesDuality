@@ -17,7 +17,7 @@ import pickle as pic
 from tabulate import tabulate
 from datetime import datetime
 
-def main(d=1,print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, step_inner=True, traj_test_lb=150000, traj_test_ub=10000, K_low=200, hurst=0.7, seed=0):
+def main(d=1,print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, step_inner=True, traj_test_lb=150000, traj_test_ub=10000, K_low=200, hurst=0.7, seed=0, seed_traj_testingALL_add=0):
     """
     Main function, which executes algorithm by Andersen Broadie (2004). Slightly adjusted, as upper biased estimator is estimated directly rather than gap between lower- and upper-biased estimator.
 
@@ -58,7 +58,7 @@ def main(d=1,print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, ste
     r=0.0
 
     train_rng= np.random.default_rng(seed)
-    test_rng =  np.random.default_rng(seed+2000)
+    test_rng =  np.random.default_rng(seed+2000+seed_traj_testingALL_add)
     model_nn_rng = np.random.default_rng(seed+4000)
     # sim_s = 1*dt
     discount_f= np.exp(-r*dt)
@@ -253,7 +253,7 @@ def main(d=1,print_progress=True, steps= 100, T=1, traj_est=80000, grid=100, ste
 
 information=[]
 if __name__=='__main__':
-    for d,H in [ (2,0.2), (1,0.3), (1, 0.7)]:
+    for d,H in [ (1,0.45)]:
         for grid in [1300]:
             print(''.join(['*' for j in range(10)]), grid ,''.join(['*' for j in range(10)]))
             for i in range(1):                
@@ -276,3 +276,6 @@ if __name__=='__main__':
     # line="".join(np.repeat('*',75))
     # fh.write(f'\n {line} \n')
     # fh.close()
+
+
+
