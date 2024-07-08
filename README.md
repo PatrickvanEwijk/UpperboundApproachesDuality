@@ -24,7 +24,7 @@ Information on the hyperparameters in each approach can be found in the doc stri
            - BermudanMaxCallAB_mainGAP: originally proposed by authors; involves the difference between lower and upper biased estimator which is estimated rather than upper biased estimator.
            - BermudanMaxCallAB_TvRpartLS.py: interpolation Tsitsiklis & Van Roy (2001) and Longstaff Schwartz LSMC across different exercise rights->continuation value of previous right determined by Tsitsiklis & Van Roy (2001), stopping value current right determined by Longstaff Schwartz.  
 ### Primal-Dual Nonnested
-  - Belomestny et al. (2009): fBMBelomestny.py, BermudanMaxCal_lBelomestny.py.
+  - Belomestny et al. (2009): fBMBelomestny.py, BermudanMaxCal_Belomestny.py.
   - Schoenmakers et al. (2013): fBMSchoenmakersSZH.py, BermudanMaxCall_SchoenmakersSZH.py.
        - Not used in report: (fBMSchoenmakers.py, BermudanMaxCall_Schoenmakers.py)-> involves not substracting martingale during LSMC. 
 ### Pure-Dual Linear Programming Formulations
