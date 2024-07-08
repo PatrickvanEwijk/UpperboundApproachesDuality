@@ -6,11 +6,12 @@ This directory corresponds to a comparative analysis of various upper bound dual
 The approaches are compared to the application of stopping a fractional Brownian motion and Bermudan max call (with multiple exercise rights, which should be used (if so) at different dates). Randomised Neural Networks (related to Extreme Learning Machines) are used as basis functions.
 Generally, the primal LSMC is implemented using the Longstaff & Schwartz approach (2001)[^1].
 
-To reproduce the fine-tuning results, please place all files from /jupyter_notebooks_analysis_finetuning/, /fractionalBrownianMotion/, /BermudanMaxCall_multiple_exercise_rights/ in a single folder and run the Jupyter Notebooks.
+The final files are captured in the folder /Final_comparison_new_testing_traj/. Here, the python scripts have been adjusted to choose an independent set of testing trajectories relative to the 'fine-tuning' testing trajectories[^2].
+The notebooks in this folder can simply be run to reproduce the final results. 
+
+To reproduce the fine-tuning results in /fine-tuning_and_ch6/, please place all files from /jupyter_notebooks_analysis_finetuning/, /fractionalBrownianMotion/, /BermudanMaxCall_multiple_exercise_rights/ in a single folder and run the Jupyter Notebooks.
 The 'finetuning-finalrun' notebooks only show the final calibrations, but shown based on the 'fine-tuning' testing trajectories.
 
-The final files are captured in the folder '/Final_comparison_new_testing_traj/'. Here, the python scripts have been adjusted to choose an independent set of testing trajectories relative to the 'fine-tuning' testing trajectories[^2].
-The notebooks in this folder can simply be run to reproduce the final results. 
 
 Information on the hyperparameters in each approach can be found in the doc string of the main function in each file.
 
@@ -35,8 +36,8 @@ Information on the hyperparameters in each approach can be found in the doc stri
        - Solved using BFGS as proposed by Dickmann (2014).
 
 ## Applications
-1. Fractional Brownian motion: /fractionalBrownianMotion/ for fine-tuning runs.
-2. Bermudan Max Call (with multiple exercise rights): /BermudanMaxCall_multiple_exercise_rights/  for fine-tuning runs.
+1. Fractional Brownian motion: fBM files in  /Final_comparison_new_testing_traj/ and /fractionalBrownianMotion/ in /fine-tuning_and_ch6/ for fine-tuning runs.
+2. Bermudan Max Call (with multiple exercise rights):  BermudanMaxCall files in  /Final_comparison_new_testing_traj/ and /BermudanMaxCall_multiple_exercise_rights/ in /fine-tuning_and_ch6/ for fine-tuning runs.
 
 ## Comparison
 See /Final_comparison_new_testing_traj/. 
@@ -44,9 +45,9 @@ A Notebook is present based on each application. Please note that github authent
 The result files have been stored in /resultfiles/.
 
 ## Additional analyses
-1. Fine-tuning analyses in /jupyter_notebooks_analysis_finetuning/.
-2. Timing the pure dual (martingale minimisation approaches) and find a relationship between the empirical computation time in the relevant input parameters of the algorithms. See /timingMartingaleMinimisation/
-3. Tuning the parameters in the choose of distribution of A in Belomestny et al. (2023). See /tuningAbelomestny2023/
+1. Fine-tuning analyses in /jupyter_notebooks_analysis_finetuning/ in /fine-tuning_and_ch6/.
+2. Timing the pure dual (martingale minimisation approaches) and find a relationship between the empirical computation time in the relevant input parameters of the algorithms. See /timingMartingaleMinimisation/ in /fine-tuning_and_ch6/.
+3. Tuning the parameters in the choose of distribution of A in Belomestny et al. (2023). See /tuningAbelomestny2023/ in /fine-tuning_and_ch6/.
 
 ## Other remarks
 1. Jupyter Notebooks have been run in Google Cloud on a virtual machine (c3d-highmem-8, corresponding to a 4-core AMD EPYC (GENOA) 9B14 2.60 GHz CPU).
