@@ -67,14 +67,17 @@ file_='run20240619000608.txt' # fBM higher inner sim AB (too high)
 file_='run20240619110659.txt' # fBM higher inner sim AB
 file_='run20240619120658.txt'# fBM higher inner sim AB
 
+file_='run20240702130705.txt' #100 run fbm
+# file_ = 'run20240702120730.txt' #100 run bermudan max call
 ############### FINAL RUNS ##################
-file_ ='run20240625110611.txt'# final run 16-6 for fbm N_T=49.=final run 25-6
-file_='run20240619120658.txt'# final run fBM (higher inner sim AB), N_T=9. 22-6
-file_='run20240622210621.txt' #final run fBM (higher inner sim AB), N_T=9, hurst close to 0.5; 22-6
+# file_='run20240701170744.txt'# final run fBM (higher inner sim AB), N_T=9. 28-6
+#file_='run20240628030620.txt' #final run fBM (higher inner sim AB), N_T=9, hurst close to 0.5; 28-6
+#file_='run20240628010620.txt'# final run fBM (higher inner sim AB), N_T=49. 28-6
+file_ = 'run20240705180707.txt'# final run fBM (higher inner sim AB), N_T=100. 28-6
 
-file_='run20240622120626.txt'# final run Bermudan Max Call N_T=9. 22-6. Div=.15, r=0.0
-file_ ='run20240622200627.txt'# final run Bermudan Max Call N_T=9, d=10. Div=.15, r=0.0
-file_='run20240623160644.txt'# final run Bermudan Max Call N_T=49. 22-6. Div=.15, r=0.0
+# file_ ='run20240628130622.txt'# final run Bermudan Max Call N_T=9. 22-6. Div=.15, r=0.0
+# file_ ='run20240628130651.txt'# final run Bermudan Max Call N_T=9, d=10. Div=.15, r=0.0
+# file_='run20240628150624.txt'# final run Bermudan Max Call N_T=49. 28-6. Div=.15, r=0.0
 
 
 
