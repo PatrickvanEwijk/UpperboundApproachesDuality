@@ -55,14 +55,11 @@ file_='run20240618150618.txt'# Check hurst close to 0.5
 file_='run20240618180600.txt' #  Check hurst close to 0.5- high inner AB
 # file_='run20240619000608.txt' # higher inner sim AB - final version
 ############### FINAL RUNS ##################
-# file_ ='run20240615230639.txt' # final run 16-6 for fbm N_T=9
-#file_ = 'run20240616130610.txt'# final run 16-6 for Bermudan Max Call N_T=9
+file_ ='run20240628130622.txt'# final run Bermudan Max Call N_T=9. 28-6. Div=.15, r=0.0
+#file_ = 'run20240616130610.txt'# final run 28-6 for Bermudan Max Call N_T=49
 
-
-
-# file_='run20240619120658.txt'# final run fBM (higher inner sim AB), N_T=9. 22-6
-file_='run20240622210621.txt' #final run fBM (higher inner sim AB), N_T=9, hurst close to 0.5; 22-6
-# file_='run20240622120626.txt'# final run Bermudan Max Call N_T=9. 22-6. Div=.15, r=0.0
+file_='run20240701170744.txt'# final run fBM (higher inner sim AB), N_T=9. 28-6
+#file_='run20240628030620.txt' #final run fBM (higher inner sim AB), N_T=9, hurst close to 0.5; 28-6
 
 
 # with open(file_, 'rb') as file:
@@ -91,7 +88,7 @@ df.iloc[:,0] = (df.iloc[:,0]).str.replace('Belom. et al 1', ' Belom. et al. (200
 type_fbm= df.iloc[:,2].max()>=0 and df.iloc[:,2].max()<=1
 print(type_fbm)
 
-bound_ylim_in_fbm_gap_figures=False
+bound_ylim_in_fbm_gap_figures=True
 
 if type_fbm:
     methods = df.iloc[:,0]
@@ -131,100 +128,221 @@ if type_fbm:
         for num,method in enumerate(unique_methods): ## Style overlapping points a bit ad hoc
             mask_method = methods.index[(methods==method)]
             offset_=pd.DataFrame([0.0 for j in range(len(hurst.loc[mask_method]))], index=hurst.loc[mask_method])      
-            offset_factor= 0.003    
+            offset_factor= 0.004    
             
-            if set([0.2, 0.45, 0.7]).issubset(set(hurst.values)):       
-                if 'glasserman' in method.lower():
-                    offset_.loc[0.2]=offset_factor
-                elif 'andersen' in method.lower():
-                    offset_.loc[0.2]= -1*offset_factor     
-                    offset_.loc[0.45]= -1*offset_factor           
-                if '=0.5' in method.lower():
-                    offset_.loc[0.7]= -1*offset_factor  
-                elif '=1' in method.lower():
-                    offset_.loc[0.7]= offset_factor    
-                if '=1' in method.lower():
-                    offset_.loc[0.45]= 1*offset_factor    
-                elif '=0.05' in method.lower():
-                    offset_.loc[0.45]= -1*offset_factor  
-                elif 'schoen' in method.lower():
-                    offset_.loc[0.45]= 1*offset_factor  
-                if std_:
-                    if 'desai' in method.lower() and '[i]' in method.lower():
-                        offset_.loc[0.45]= 1*offset_factor 
-                    elif '2023' in method.lower() and '[ii]' in method.lower():
-                        offset_.loc[0.45]= -1*offset_factor 
-                    if 'desai' in method.lower() and '[ii]' in method.lower():
-                        offset_.loc[0.45]= -1*offset_factor 
-                    elif '=0.5' in method.lower():
-                        offset_.loc[0.45]= 1*offset_factor 
+            if set([0.2, 0.45, 0.7]).issubset(set(hurst.values)):     
+                if not(std_):
+                    if '=1' in method.lower():
+                        offset_.loc[0.2] =1*offset_factor   
+                    elif 'desai' in method.lower() and '[i]' in method.lower():
+                        offset_.loc[0.2] = -1*offset_factor  
+                        offset_.loc[0.45] = -2*offset_factor
+                    elif '2023' in method and '[i]' in method.lower():
+                        offset_.loc[0.2] =1*offset_factor   
+                        offset_.loc[0.3] =-1*offset_factor  
+                    elif '=0.05' in method:
+                        offset_.loc[0.2] = -1*offset_factor
+                        offset_.loc[0.3] = 1*offset_factor
+                        offset_.loc[0.45] = 1.5*offset_factor
+                        offset_.loc[0.7] = 1*offset_factor
+                    elif '=0.5' in method:
+                        offset_.loc[0.3] = -1*offset_factor  
+                        offset_.loc[0.45] = -1.5*offset_factor
+                    elif 'desai' in method.lower() and '[ii]' in method.lower():
+                        offset_.loc[0.45] = 2*offset_factor  
+                    elif '2023' in method and '[ii]' in method.lower():
+                        offset_.loc[0.7] = -1*offset_factor   
+                    elif 'andersen' in method.lower():
+                        offset_.loc[0.45]=1*offset_factor
+                    elif 'schoen' in method.lower():
+                        offset_.loc[0.45]=-1*offset_factor
                 else:
-                    if '2019' in method.lower():
-                        offset_.loc[0.7]= 1*offset_factor 
-                    elif '=0.05' in method.lower():
-                        offset_.loc[0.7]= -1*offset_factor 
+                    if '=0.05' in method:
+                        offset_.loc[0.3] = .5*offset_factor
+                        offset_.loc[0.45] = 1*offset_factor
+                    elif '2023' in method and '[ii]' in method.lower():
+                        offset_.loc[0.3] = -.5*offset_factor
+                        offset_.loc[0.7]=-.6*offset_factor
+                    elif 'desai' in method.lower() and '[ii]' in method.lower():
+                        offset_.loc[0.45] = 1*offset_factor  
+                        offset_.loc[0.7]= 1*offset_factor
+                    elif '2009' in method:
+                        offset_.loc[0.7]= -1*offset_factor
+                    elif '2023' in method and '[i]' in method.lower():
+                        offset_.loc[0.45] = -1*offset_factor
+                    elif '=0.5' in method:
+                        offset_.loc[0.45] = -1*offset_factor
+                    elif '2019' in method:
+                        offset_.loc[0.7]=.6*offset_factor
+                    elif 'andersen' in method.lower():
+                        offset_.loc[0.45]=1*offset_factor
+                    elif 'schoen' in method.lower():
+                        offset_.loc[0.45]=-1*offset_factor
+
+                      
+                # if 'glasserman' in method.lower():
+                #     offset_.loc[0.2]=offset_factor
+                # elif 'andersen' in method.lower():
+                #     offset_.loc[0.2]= -1*offset_factor     
+                #     offset_.loc[0.45]= -1*offset_factor           
+                # if '=0.5' in method.lower():
+                #     offset_.loc[0.7]= -1*offset_factor  
+                # elif '=1' in method.lower():
+                #     offset_.loc[0.7]= offset_factor    
+                # if '=1' in method.lower():
+                #     offset_.loc[0.45]= 1*offset_factor    
+                # elif '=0.05' in method.lower():
+                #     offset_.loc[0.45]= -1*offset_factor  
+                # elif 'schoen' in method.lower():
+                #     offset_.loc[0.45]= 1*offset_factor  
+                # if 'desai' in method.lower() and '[i]' in method.lower():
+                #     offset_.loc[0.45]= 1*offset_factor 
+                # elif 'desai' in method.lower() and '[ii]' in method.lower():
+                #     offset_.loc[0.45]= -1*offset_factor 
+                
+                # if std_:
+                #     if '2023' in method.lower() and '[ii]' in method.lower():
+                #         offset_.loc[0.45]= -1*offset_factor 
+                #     if 'desai' in method.lower() and '[ii]' in method.lower():
+                #         offset_.loc[0.45]= -1*offset_factor 
+                #     elif '=0.5' in method.lower():
+                #         offset_.loc[0.45]= 1*offset_factor 
+                    
+                #     if 'belom' in method.lower() and '[i]' in method.lower():
+                #         offset_.loc[0.2]= 1*offset_factor 
+                #     elif '=0.05' in method.lower():
+                #         offset_.loc[0.2]= -1*offset_factor 
+
+                # else:
+                #     if 'desai' in method.lower() and '[i]' in method.lower():
+                #         offset_.loc[0.2]= 1*offset_factor 
+                #     elif '=1'  in method.lower():
+                #         offset_.loc[0.2]= -1*offset_factor 
+                #     if '2019' in method.lower():
+                #         offset_.loc[0.7]= 1*offset_factor 
+                #     elif '=0.05' in method.lower():
+                #         offset_.loc[0.7]= -1*offset_factor 
             elif set([0.4, 0.45, 0.5, 0.55,  0.6]).issubset(set(hurst.values)):
-                offset_factor= 0.0015
+                offset_factor= 0.003
                 if 'schoen' in method.lower():
-                    offset_.loc[0.4]=-1*offset_factor
-                    offset_.loc[0.45]=offset_factor
-                    offset_.loc[0.55]=offset_factor
-                elif '2012' in method.lower() and '[i]' in method.lower():
-                    offset_.loc[0.4]=-.5*offset_factor
-                    offset_.loc[0.45]= 1*offset_factor
-                    offset_.loc[0.5]= -1.8*offset_factor
-                    offset_.loc[0.55]= .5*offset_factor  
-
-                elif '2012' in method.lower() and 'ii' in method.lower():
-                    offset_.loc[0.4]=-1.5*offset_factor
-                    offset_.loc[0.45]= -1.5*offset_factor
-                    offset_.loc[0.5]= .2*offset_factor
-                    offset_.loc[0.55]= -.2*offset_factor
-                elif '=0.05' in method.lower():
-                    offset_.loc[0.4]= -2.7*offset_factor
-                    offset_.loc[0.5]= 1.5*offset_factor  
-                    offset_.loc[0.45]= 1.8*offset_factor  
-                    offset_.loc[0.6]= 1.5*offset_factor
-                elif '2023' in method.lower() and '[ii]' in method.lower():
-                    offset_.loc[0.55]= -.5*offset_factor 
-                    offset_.loc[0.6]= -.5*offset_factor 
-                    offset_.loc[0.5] = 1.5*offset_factor
-
-                elif '2023' in method.lower() and '[i]' in method.lower():
-                    offset_.loc[0.4]= .5*offset_factor 
-                    offset_.loc[0.45]= -.5*offset_factor 
-                    offset_.loc[0.55]= .5*offset_factor  
-                    offset_.loc[0.6]= offset_factor  
-                    offset_.loc[0.5]= 0*offset_factor 
-                elif 'glasserman' in method.lower():
-                    offset_.loc[0.4]= -1*offset_factor 
-                    offset_.loc[0.6]=-offset_factor
+                    offset_.loc[0.4]= .95*offset_factor
+                    offset_.loc[0.45]= .5*offset_factor
+                    offset_.loc[0.55] = .5*offset_factor
+                    offset_.loc[0.6] = -.4*offset_factor
+                elif 'desai' in method.lower() and '[i]' in method.lower():
+                    offset_.loc[0.4]= -1*offset_factor
+                    offset_.loc[0.45]= -1.2*offset_factor
+                    offset_.loc[0.5]=.3*offset_factor
+                    offset_.loc[0.55] = -1.4*offset_factor
+                    offset_.loc[0.6] = .8*offset_factor
+                elif '=0.5' in method:
+                    offset_.loc[0.4] = 1.6*offset_factor
+                    offset_.loc[0.45] = -1.8*offset_factor
+                    offset_.loc[0.6] = 1.1*offset_factor
+                    offset_.loc[0.5] =  1*offset_factor
+                    offset_.loc[0.55] =  1.6*offset_factor
+                elif '=0.05' in method:
+                    offset_.loc[0.4]= -1.2*offset_factor
+                    offset_.loc[0.45]= 1.8*offset_factor
+                    offset_.loc[0.6] = -.5*offset_factor
+                    offset_.loc[0.5] =  -1.5*offset_factor
+                    offset_.loc[0.55] =  -2.2*offset_factor
+                elif 'desai' in method.lower() and '[ii]' in method.lower():
+                    offset_.loc[0.4]= .5*offset_factor
+                    offset_.loc[0.45]= 1.1*offset_factor
+                    offset_.loc[0.5] =  -.5*offset_factor
+                    offset_.loc[0.6] = -.5*offset_factor
                 elif 'andersen' in method.lower():
-                    offset_.loc[0.4]= 1*offset_factor 
-                    offset_.loc[0.45]= -1*offset_factor    
-                    offset_.loc[0.55]= -1*offset_factor         
-                    offset_.loc[0.6]= 1*offset_factor  
-                elif '2009' in method.lower():
-                    offset_.loc[0.4]= -1*offset_factor 
+                    offset_.loc[0.45]= -.5*offset_factor
+                    offset_.loc[0.5]= .5*offset_factor
+                    offset_.loc[0.55] = -.5*offset_factor
+                elif 'glasserman' in method.lower():
+                    offset_.loc[0.5] = -.5*offset_factor
+                elif '=1' in method:
+                    offset_.loc[0.55] = .6*offset_factor
+                    offset_.loc[0.6]= -1.6*offset_factor
+                elif '2023' in method and '[ii]' in method.lower():
+                    offset_.loc[0.55] = -.7*offset_factor
+                    offset_.loc[0.6]= -1.5*offset_factor
+                    offset_.loc[0.4]= -.5*offset_factor
+                    offset_.loc[0.5]= 1.3*offset_factor
+                elif '2023' in method and '[i]' in method.lower():
+                    offset_.loc[0.5]= -1.5*offset_factor
+                    offset_.loc[0.55]= .2*offset_factor
                     offset_.loc[0.6]= .2*offset_factor
-                elif '2019' in method.lower():
-                    offset_.loc[0.4]= 1*offset_factor
-                elif '=0.5' in method.lower():
-                    #offset_.loc[0.5]= 1*offset_factor  
-                    offset_.loc[0.4]= 1.8*offset_factor  
-                    offset_.loc[0.45]= 1*offset_factor
-                    offset_.loc[0.5]= -1.8*offset_factor
-                    offset_.loc[0.55]= 1.2*offset_factor 
-                    offset_.loc[0.6]= -1.8*offset_factor 
-                elif '=1' in method.lower():
-                    offset_.loc[0.4]= 1*offset_factor
-                    offset_.loc[0.45]= 0*offset_factor
-                    offset_.loc[0.5]= -.7*offset_factor
-                    offset_.loc[0.55]= -1.6*offset_factor
-                    offset_.loc[0.6]= -.5*offset_factor
+                elif '2019' in method:
+                    offset_.loc[0.6] = .3*offset_factor
+                    offset_.loc[0.4]= .5*offset_factor
+                elif '2009' in method:
+                    offset_.loc[0.6] = 1.6*offset_factor
+                    offset_.loc[0.4]= -.5*offset_factor
+                if std_:
+                    if '2019' in method:
+                        offset_.loc[0.6] = 0 
+                    if 'desai' in method and '[i]' in method.lower():
+                        offset_.loc[0.6]+=.3
+                # if 'schoen' in method.lower():
+                #     offset_.loc[0.4]=-1*offset_factor
+                #     offset_.loc[0.45]=offset_factor
+                #     offset_.loc[0.55]=offset_factor
+                # elif '2012' in method.lower() and '[i]' in method.lower():
+                #     offset_.loc[0.4]=-.5*offset_factor
+                #     offset_.loc[0.45]= 1*offset_factor
+                #     offset_.loc[0.5]= -1.8*offset_factor
+                #     offset_.loc[0.55]= .5*offset_factor  
+
+                # elif '2012' in method.lower() and 'ii' in method.lower():
+                #     offset_.loc[0.4]=-1.5*offset_factor
+                #     offset_.loc[0.45]= -1.5*offset_factor
+                #     offset_.loc[0.5]= .2*offset_factor
+                #     offset_.loc[0.55]= -.2*offset_factor
+                # elif '=0.05' in method.lower():
+                #     offset_.loc[0.4]= -2.7*offset_factor
+                #     offset_.loc[0.5]= 1.5*offset_factor  
+                #     offset_.loc[0.45]= 1.8*offset_factor  
+                #     offset_.loc[0.6]= 1.5*offset_factor
+                # elif '2023' in method.lower() and '[ii]' in method.lower():
+                #     offset_.loc[0.55]= -.5*offset_factor 
+                #     offset_.loc[0.6]= -.5*offset_factor 
+                #     offset_.loc[0.5] = 1.5*offset_factor
+
+                # elif '2023' in method.lower() and '[i]' in method.lower():
+                #     offset_.loc[0.4]= .5*offset_factor 
+                #     offset_.loc[0.45]= -.5*offset_factor 
+                #     offset_.loc[0.55]= .5*offset_factor  
+                #     offset_.loc[0.6]= offset_factor  
+                #     offset_.loc[0.5]= 0*offset_factor 
+                # elif 'glasserman' in method.lower():
+                #     offset_.loc[0.4]= -1*offset_factor 
+                #     offset_.loc[0.6]=-offset_factor
+                # elif 'andersen' in method.lower():
+                #     offset_.loc[0.4]= 1*offset_factor 
+                #     offset_.loc[0.45]= -1*offset_factor    
+                #     offset_.loc[0.55]= -1*offset_factor         
+                #     offset_.loc[0.6]= 1*offset_factor  
+                # elif '2009' in method.lower():
+                #     offset_.loc[0.4]= -1*offset_factor 
+                #     offset_.loc[0.6]= .2*offset_factor
+                # elif '2019' in method.lower():
+                #     offset_.loc[0.4]= 1*offset_factor
+                # elif '=0.5' in method.lower():
+                #     #offset_.loc[0.5]= 1*offset_factor  
+                #     offset_.loc[0.4]= 1.8*offset_factor  
+                #     offset_.loc[0.45]= 1*offset_factor
+                #     offset_.loc[0.5]= -1.8*offset_factor
+                #     offset_.loc[0.55]= 1.2*offset_factor 
+                #     offset_.loc[0.6]= -1.8*offset_factor 
+                # elif '=1' in method.lower():
+                #     offset_.loc[0.4]= 1*offset_factor
+                #     offset_.loc[0.45]= 0*offset_factor
+                #     offset_.loc[0.5]= -.7*offset_factor
+                #     offset_.loc[0.55]= -1.6*offset_factor
+                #     offset_.loc[0.6]= -.5*offset_factor
                   
             offset_.index=hurst.loc[mask_method].index
             color_= f'C{num}' if num<10 else colors_list[int(1.2*num+4)]
+            if '2023' in method and '[i]' in method.lower():
+                color_='#FFD700'
             plt.scatter((hurst.loc[mask_method].values+offset_.values.flatten()), gap.loc[mask_method].values,c=color_, label=method)
 
         plt.xlabel(r'$H$') #'Hurst')
@@ -237,7 +355,7 @@ if type_fbm:
         plt.gca().add_artist(legend)
         if bound_ylim_in_fbm_gap_figures:
             if std_ is True:
-                plt.ylim(0, 0.0139)
+                plt.ylim(0, 0.0145)
             else:
                 plt.ylim(0, 0.0125)
         if std_:
@@ -318,12 +436,69 @@ else:
         gap = upper_bounds-lower_bounds_cv#upper_bounds-lower_bounds
         print(dataframe_sel)
         
+                        
         ### FIG GAP
         for num, method in enumerate(unique_methods):
             mask_method = methods.index[(methods==method)]
+            offset_=pd.DataFrame([0.0 for j in range(len(exercise_right.loc[mask_method]))], index=exercise_right.loc[mask_method])      
+            offset_factor= 0.06
+            if not(std_):
+                if '2023' in method and '[i]' in method.lower():
+                    offset_.loc[3, 7, 10]=offset_factor
+                    offset_.loc[5]=-.4*offset_factor
+                if '2023' in method and '[ii]' in method.lower():
+                    offset_.loc[8]=offset_factor 
+                    offset_.loc[9]=offset_factor 
+                if 'glasserman' in method.lower():
+                    offset_.loc[8]=-1.3*offset_factor 
+                    offset_.loc[10]=-1.4*offset_factor 
+                if 'desai' in method.lower() and '[i]' in method.lower():
+                    offset_.loc[8]=-1* offset_factor
+                    offset_.loc[10]=-.5*offset_factor
+                    offset_.loc[3]=-.5*offset_factor
+                    offset_.loc[6]=.5*offset_factor
+                    offset_.loc[7]=-.5*offset_factor
+                if '=0.5' in method:
+                    offset_.loc[4,5,6]=-1*offset_factor
+                    offset_.loc[5]=-1.3*offset_factor
+                if '=1' in method:
+                    offset_.loc[1]= -1*offset_factor
+                    offset_.loc[5]= 1*offset_factor
+                if '=0.05' in method:
+                    offset_.loc[1,2,3,4,5,6]=offset_factor
+                    offset_.loc[2]=1.3*offset_factor
+                    offset_.loc[9]=-1*offset_factor
+                    offset_.loc[10]=-1*offset_factor
+                    offset_.loc[6]=1.3*offset_factor
+                if 'andersen' in method.lower():
+                    offset_.loc[10]=offset_factor
+            if std_:
+                if 'desai' in method.lower() and '[i]' in method.lower():
+                    offset_.loc[1,2,3,4,5]=1*offset_factor
+                if 'desai' in method.lower() and '[ii]' in method.lower():
+                    offset_.loc[1,2,3,4,5]=-1*offset_factor
+                    offset_.loc[9]=-1*offset_factor
+                if '2023' in method and '[i]' in method.lower():
+                    offset_.loc[4,5,8,10]= offset_factor
+                    offset_.loc[9]=.2*offset_factor
+                    offset_.loc[6]=1.8*offset_factor
+                    offset_.loc[7]=-.5*offset_factor
+                if '2023' in method and '[ii]' in method.lower():
+                    offset_.loc[4,5,7,8,9,10]= -1*offset_factor
+                    offset_.loc[6]=.2*offset_factor
+                if '=0.05' in method:
+                    offset_.loc[6]=-1.4*offset_factor
+                    offset_.loc[7]=1.2*offset_factor
+                    offset_.loc[9]=1.5*offset_factor
+                if 'glasserman' in method.lower():
+                    offset_.loc[9]=offset_factor
+                
+            offset_.index=exercise_right.loc[mask_method].index
             color_= f'C{num}' if num<10 else colors_list[int(1.2*num+4)]
+            if 'desai' in method.lower() and '[i]' in method.lower():
+                color_='#FFD700'
             # color_= f'C{num}' if num<10 else colors_list[num+3]
-            plt.scatter(exercise_right.loc[mask_method], gap.loc[mask_method],c=color_, label=method)
+            plt.scatter(exercise_right.loc[mask_method].values+offset_.values.flatten(), gap.loc[mask_method],c=color_, label=method)
 
         plt.xlabel('$L$') #'Exercise Rights')
         plt.xticks(np.arange(1, np.max(exercise_right)+.2, dtype=int))
@@ -365,7 +540,7 @@ else:
     triangle_up = triangle_up_( 1/55*(np.max(lower_bounds_cv)-np.min(lower_bounds_cv)), 1/30*(np.max(lower_bounds_cv)-np.min(lower_bounds_cv)))
     offset_= np.linspace(-.18, .18, len(unique_methods))
     for number_method, method in enumerate(unique_methods):
-        mask_method = methods.index[(methods==method)]
+        mask_method = methods.index[(methods==method)]        
        # lb[method]=ax1.scatter(exercise_right.loc[mask_method], lower_bounds.loc[mask_method], label=method, marker=triangle_down, c=f'C{number_method}', linewidths=0.5)
         color_= f'C{number_method}' if number_method<10 else colors_list[number_method+3]
         ub[method]=ax1.scatter(exercise_right.loc[mask_method]+offset_[number_method], upper_bounds.loc[mask_method], label=method, marker=triangle_up, c=color_, linewidths=0.5)
