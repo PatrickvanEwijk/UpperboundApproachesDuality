@@ -19,7 +19,7 @@ from tabulate import tabulate
 from datetime import datetime
 
 
-def main(d=3, L=3, print_progress=True, steps=9,T=3, r=0.05, delta_dividend= 0.1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_noise=None, S_0=110, strike=100, seed=0, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike)):
+def main(d=3, L=3, print_progress=True, steps=9,T=3, r=0.05, delta_dividend= 0.1, traj_est=80000, grid=100, mode_kaggle=False, traj_test_lb=150000, traj_test_ub=10000, K_low=200, K_noise=None, S_0=110, strike=100, seed=0, payoff_=lambda x, strike: utils.payoff_maxcal(x, strike), seed_traj_testingALL_add=0):
     """
     Main function, which executes algorithm by Andersen Broadie (2004). 
         Slightly adjusted, as upper biased estimator is estimated directly rather than gap between lower- and upper-biased estimator.
@@ -69,7 +69,7 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3, r=0.05, delta_dividend= 0.1
     
 
     train_rng= np.random.default_rng(seed)
-    test_rng =  np.random.default_rng(seed+1000)
+    test_rng =  np.random.default_rng(seed+1000+seed_traj_testingALL_add)
     model_nn_rng = np.random.default_rng(seed+4000)
     sim_s = .5*dt
     S_0_train=S_0 *np.exp( train_rng.normal(size=(traj, 1, d))*sigma*(sim_s)**.5 - .5*sigma**2*sim_s)
@@ -128,6 +128,7 @@ def main(d=3, L=3, print_progress=True, steps=9,T=3, r=0.05, delta_dividend= 0.1
     C_bar=np.zeros((traj_test_ub, steps+1, L))
     # C_bar[:,-1,:]=0 # Unnecesary as initialised as 0.
     Y_comp = np.zeros((traj_test_ub, steps, L))
+    np.random.seed(seed+seed_traj_testingALL_add) # inner trajectories
     for time in range(steps-1, -1,-1):
         underlying_upperbound= S3[:,time,:]  
         ## Bool nrl
