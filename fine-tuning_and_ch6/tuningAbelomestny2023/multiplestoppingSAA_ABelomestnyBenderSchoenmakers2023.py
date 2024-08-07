@@ -9,7 +9,7 @@ from tabulate import tabulate
 from tensorflow import keras, constant_initializer, compat, random as random_tf
 import numpy as np
 import pickle as pic
-from multiplestoppingSAA import main as mainSAA
+from BermudanMaxCall_SAA import main as mainSAA
 from itertools import product
 information=[]
 if __name__=='__main__':
